@@ -19,9 +19,11 @@ get_driver_count = int_output(lgdal.GDALGetDriverCount, [])
 get_driver_description = const_string_output(lgdal.GDALGetDescription, [])
 
 ### DataSource ###
-open_ds = voidptr_output(lgdal.GDALOpen, [c_char_p, c_int, POINTER(c_void_p)])
+create_ds = voidptr_output(lgdal.GDALCreate, [c_void_p, c_char_p, c_int, c_int, c_int, c_int])
+open_ds = voidptr_output(lgdal.GDALOpen, [c_char_p, c_int])
 close_ds = void_output(lgdal.GDALClose, [c_void_p])
 get_ds_description = const_string_output(lgdal.GDALGetDescription, [])
+get_ds_driver = voidptr_output(lgdal.GDALGetDatasetDriver, [c_void_p])
 get_ds_xsize = int_output(lgdal.GDALGetRasterXSize, [c_void_p])
 get_ds_ysize = int_output(lgdal.GDALGetRasterYSize, [c_void_p])
 get_ds_raster_count = int_output(lgdal.GDALGetRasterCount, [c_void_p])

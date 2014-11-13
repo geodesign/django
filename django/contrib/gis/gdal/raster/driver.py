@@ -8,8 +8,14 @@ from django.utils.encoding import force_bytes
 
 class Driver(GDALBase):
 
-    # Case-insensitive aliases for GDAL Raster Drivers.
+    # Case-insensitive aliases for some GDAL Raster Drivers.
+    # For a complete list of original driver names see
+    # http://www.gdal.org/formats_list.html
     _alias = {'memory': 'MEM',
+              'tiff': 'GTiff',
+              'tif': 'GTiff',
+              'jpeg': 'JPEG',
+              'jpg': 'JPEG',
               }
 
     def __init__(self, dr_input):
@@ -55,5 +61,5 @@ class Driver(GDALBase):
     # Driver properties
     @property
     def driver_count(self):
-        "Returns the number of OGR data source drivers registered."
+        "Returns the number of GDAL data source drivers registered."
         return capi.get_driver_count()
