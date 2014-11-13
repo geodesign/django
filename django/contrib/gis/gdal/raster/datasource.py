@@ -4,6 +4,7 @@ from ctypes import byref
 # The GDAL C library, OGR exceptions, and the Layer object.
 from django.contrib.gis.gdal.base import GDALBase
 from django.contrib.gis.gdal.raster.driver import Driver
+from django.contrib.gis.gdal.raster.bands import Band
 from django.contrib.gis.gdal.error import OGRException, OGRIndexError
 from django.contrib.gis.gdal.layer import Layer
 
@@ -47,9 +48,6 @@ class DataSource(GDALBase):
                 ds_input['bands'], ds_input['datatype'], None
             )
         elif isinstance(ds_input, six.string_types):
-            # The data source driver is a void pointer.
-            # ds_driver = Driver.ptr_type()
-            # ds_driver = Driver('tif')
             try:
                 # GDALOpen will auto-detect the data source type.
                 ds = capi.open_ds(ds_input, self._write)
@@ -61,7 +59,6 @@ class DataSource(GDALBase):
             ds = ds_input
         else:
             raise OGRException('Invalid data source input type: %s' % type(ds_input))
-
 
         if ds:
             if not isinstance(ds_driver, Driver):
@@ -88,11 +85,12 @@ class DataSource(GDALBase):
         if isinstance(index, int):
             if index < 0 or index >= self.band_count:
                 raise OGRIndexError('index out of range')
+            # Raster band index starts at 1
+            index += 1
             b = capi.get_ds_raster_band(self._ptr, index)
         else:
             raise TypeError('Invalid index type: %s' % type(index))
-        # return Layer(l, self)
-        return b
+        return Band(b, self)
 
     def __len__(self):
         "Returns the number of layers within the data source."
@@ -103,12 +101,31 @@ class DataSource(GDALBase):
         return '%s' % (self.name)
 
     @property
+    def name(self):
+        "Returns the name of the data source."
+        name = capi.get_ds_description(self._ptr)
+        return force_text(name, self.encoding, strings_only=True)
+
+    @property
+    def sizex(self):
+        return capi.get_ds_xsize(self._ptr)
+
+    @property
+    def sizey(self):
+        return capi.get_ds_ysize(self._ptr)
+
+    @property
     def band_count(self):
         "Returns the number of layers in the data source."
         return capi.get_ds_raster_count(self._ptr)
 
     @property
-    def name(self):
-        "Returns the name of the data source."
-        name = capi.get_ds_description(self._ptr)
-        return force_text(name, self.encoding, strings_only=True)
+    def projection_ref(self):
+        return capi.get_ds_projection_ref(self._ptr)
+
+    # def get_geotransform(self):
+    #     "Returns the geotransform of the data source"
+    #     bla = (0,1,2,3,4,5)
+    #     from ctypes import byref, c_double, cast
+    #     return capi.get_ds_geotransform(self._ptr, (c_double*6)(*bla))
+

@@ -32,7 +32,7 @@ class Driver(GDALBase):
             else:
                 name = dr_input
 
-            # Attempting to get the OGR driver by the string name.
+            # Attempting to get the GDAL driver by the string name.
             dr = capi.get_driver_by_name(force_bytes(name))
         elif isinstance(dr_input, int):
             self._register()
