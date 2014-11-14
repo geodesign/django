@@ -47,3 +47,7 @@ class RasterBandDataTest(unittest.TestCase):
         bnd = self.d[0]
         bnd.nodata_value = 1.23
         self.assertEqual(1.23, bnd.nodata_value)
+
+    def test_data_io(self):
+        dat = self.d[0].data
+        import ipdb; ipdb.set_trace()

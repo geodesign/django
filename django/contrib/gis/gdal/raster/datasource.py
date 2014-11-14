@@ -10,7 +10,7 @@ from django.contrib.gis.gdal.srs import SpatialReference, CoordTransform
 
 # Getting the ctypes prototypes for the DataSource.
 from django.contrib.gis.gdal.raster.prototypes import ds as capi
-from django.contrib.gis.gdal.raster.constants import GDAL_PIXEL_TYPES
+from django.contrib.gis.gdal.raster import utils
 
 from django.utils.encoding import force_bytes, force_text
 from django.utils import six
@@ -38,7 +38,7 @@ class DataSource(GDALBase):
         if isinstance(ds_input, dict):
             # If data type is provided as string, map to integer
             if isinstance(ds_input['datatype'], str):
-                ds_input['datatype'] = GDAL_PIXEL_TYPES[ds_input['datatype']]
+                ds_input['datatype'] = utils.GDAL_PIXEL_TYPES_INV[ds_input['datatype']]
 
             # Create empty in-memory raster if input data is tuple
             ds_driver = Driver('MEM')
@@ -113,6 +113,10 @@ class DataSource(GDALBase):
     @property
     def sizey(self):
         return capi.get_ds_ysize(self._ptr)
+
+    @property
+    def nr_of_pixels(self):
+        return self.sizex*self.sizey
 
     @property
     def band_count(self):
@@ -191,3 +195,59 @@ class DataSource(GDALBase):
             raise TypeError('SRID must be set with an integer.')
 
     srid = property(_get_srid, _set_srid)
+
+
+    #### PostGIS IO Routines ####
+    def _to_postgis_raster(self):
+        """Retruns the raster as postgis raster string"""
+
+        # Get GDAL geotransform for header data
+        gt = self.geotransform
+
+        # Get other required header data
+        num_bands = self.band_count
+        pixelcount = self.nr_of_pixels
+
+        # Setup raster header as array, first two numbers are 
+        # endianness and version, which are fixed by postgis.
+        rasterheader = (1, 0, num_bands, gt[1], gt[5], gt[0], gt[3], 
+                        gt[2], gt[4], self.srid, self.sizex, self.sizey)
+
+        # Pack header into binary data
+        result = utils.pack(utils.HEADER_STRUCTURE, rasterheader)
+
+        # Pack band data, add to result
+        for band in self:
+        # for i in range(num_bands):
+            # Get band
+            # band = self.ptr.GetRasterBand(i + 1)
+
+            # Set base structure for raster header - pixeltype
+            structure = 'B'
+
+            # Get band header data
+            nodata = band.nodata_value
+            pixeltype = utils.convert_pixeltype(band.datatype, 'gdal', 'postgis')
+
+            if nodata < 0 and pixeltype in utils.GDAL_PIXEL_TYPES_UNISGNED:
+                nodata = abs(nodata)
+
+            if nodata is not None:
+                # Setup packing structure for header with nodata
+                structure += utils.convert_pixeltype(pixeltype, 'postgis', 'struct')
+
+                # Add flag to point to existing nodata type
+                pixeltype += 64
+
+            # Pack header
+            bandheader = utils.pack(structure, (pixeltype, nodata))
+
+            # Read raster as binary and hexlify
+            data = band.ReadRaster()
+            data = binascii.hexlify(data).upper()
+
+            # Add band to result string
+            result += bandheader + data
+
+        # Return PostGIS Raster String
+        return result

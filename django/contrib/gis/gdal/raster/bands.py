@@ -1,3 +1,4 @@
+from ctypes import c_void_p
 from django.contrib.gis.gdal.base import GDALBase
 from django.contrib.gis.gdal.raster.prototypes import ds as capi
 
@@ -64,3 +65,24 @@ class Band(GDALBase):
     @property
     def offset(self):
         return capi.get_band_offset(self._ptr)
+
+    #### IO Methods ####
+    def _get_all_data(self):
+        GF_Read = 0
+
+        # bla = POINTER(buffertype*buffersize)
+        # lgdal.GDALRasterIO.argtypes = [c_void_p, c_int, c_int, c_int, c_int, c_int,
+        #                  bla, c_int, c_int, c_int, c_int, c_int]
+        # lgdal.GDALRasterIO.argtypes = argtypes
+        # func.restype = None
+        # return func
+        # band_io = band_io_output(lgdal.GDALRasterIO, buffertype, buffersize)
+        dataptr = c_void_p()
+        capi.band_io(self._ptr, GF_Read, 0, 0, self.sizex, self.sizey,
+                     dataptr, self.sizex, self.sizey, self.datatype, 0, 0)
+        return dataptr
+
+    def _set_all_data(self):
+        pass
+
+    data = property(_get_all_data, _set_all_data)
