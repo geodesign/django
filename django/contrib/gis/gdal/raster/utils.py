@@ -1,3 +1,5 @@
+from ctypes import c_byte, c_uint16, c_int16, c_uint32, c_int32, c_float, c_double
+
 """
 Structure of a PostGIS Raster Header
 
@@ -59,6 +61,21 @@ GDAL_PIXEL_TYPES = {
 GDAL_PIXEL_TYPES_INV = {v: k for k, v in GDAL_PIXEL_TYPES.items()}
 
 GDAL_PIXEL_TYPES_UNISGNED = [1, 2, 4]
+
+GDAL_TO_CTYPES = {
+    0: None,
+    1: c_byte,
+    2: c_uint16,
+    3: c_int16,
+    4: c_uint32,
+    5: c_int32,
+    6: c_float,
+    7: c_double,
+    8: None,
+    9: None,
+    10: None,
+    11: None
+}
 
 """
 POSTGIS

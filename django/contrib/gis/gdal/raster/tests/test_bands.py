@@ -34,7 +34,7 @@ class RasterBandDataTest(unittest.TestCase):
         self.d = DataSource({
             'sizex': 11, 'sizey': 12, 'bands': 3, 'datatype': 1})
         ds_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data/raster.tif')
-        ds = DataSource(ds_path)
+        self.ds = DataSource(ds_path)
 
     def test_sizex(self):
         "Testing size property of raster bands."
@@ -49,5 +49,8 @@ class RasterBandDataTest(unittest.TestCase):
         self.assertEqual(1.23, bnd.nodata_value)
 
     def test_data_io(self):
-        dat = self.d[0].data
-        import ipdb; ipdb.set_trace()
+        band = self.ds[0]
+        self.assertEqual(set([0, 1, 2, 3, 4, 8, 9]), set(band.data))
+
+        band.data = [1 for x in range(band.nr_of_pixels)]
+        self.assertEqual(set([1]), set(band.data))

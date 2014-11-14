@@ -37,7 +37,7 @@ set_ds_geotransform = void_output(lgdal.GDALSetGeoTransform, [c_void_p, POINTER(
 
 ### Raster Band Routines ###
 band_io = void_output(lgdal.GDALRasterIO, [c_void_p, c_int, c_int, c_int, c_int, c_int,
-                                           c_void_p, c_int, c_int, c_int, c_int, c_int])
+                                           c_void_p, c_int, c_int, c_int, c_int, c_int], errcheck=False)
 get_band_xsize = int_output(lgdal.GDALGetRasterBandXSize, [c_void_p])
 get_band_ysize = int_output(lgdal.GDALGetRasterBandYSize, [c_void_p])
 get_band_index = int_output(lgdal.GDALGetBandNumber, [c_void_p])

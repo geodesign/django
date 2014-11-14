@@ -1,6 +1,7 @@
-from ctypes import c_void_p
+from ctypes import c_byte, byref
 from django.contrib.gis.gdal.base import GDALBase
 from django.contrib.gis.gdal.raster.prototypes import ds as capi
+from django.contrib.gis.gdal.raster import utils
 
 class Band(GDALBase):
     """
@@ -20,6 +21,10 @@ class Band(GDALBase):
     @property
     def sizey(self):
         return capi.get_band_ysize(self._ptr)
+
+    @property
+    def nr_of_pixels(self):
+        return self.sizex*self.sizey
 
     @property
     def index(self):
@@ -66,23 +71,48 @@ class Band(GDALBase):
     def offset(self):
         return capi.get_band_offset(self._ptr)
 
-    #### IO Methods ####
-    def _get_all_data(self):
-        GF_Read = 0
+    #### IO Section ####
+    def block(self, offsetx=0, offsety=0, sizex=0, sizey=0, data=None):
+        """
+        Gets or sets data from raster band. The offset indicates a distance in
+        pixel values from the upper left corner from which to handle the block
+        of the specified size.
+        """
+        # Set default size if not provided
+        if not sizex:
+            sizex = self.sizex - offsetx
+        if not sizey:
+            sizey = self.sizey - offsety
 
-        # bla = POINTER(buffertype*buffersize)
-        # lgdal.GDALRasterIO.argtypes = [c_void_p, c_int, c_int, c_int, c_int, c_int,
-        #                  bla, c_int, c_int, c_int, c_int, c_int]
-        # lgdal.GDALRasterIO.argtypes = argtypes
-        # func.restype = None
-        # return func
-        # band_io = band_io_output(lgdal.GDALRasterIO, buffertype, buffersize)
-        dataptr = c_void_p()
-        capi.band_io(self._ptr, GF_Read, 0, 0, self.sizex, self.sizey,
-                     dataptr, self.sizex, self.sizey, self.datatype, 0, 0)
-        return dataptr
+        if sizex <= 0 or sizey <= 0:
+            raise ValueError('Offset too big for this raster.')
 
-    def _set_all_data(self):
+        if sizex > self.sizex or sizey > self.sizey:
+            raise ValueError('Size is larger than raster.')
+        
+        # Create c array of required size
+        if not data:
+            data_array = (utils.GDAL_TO_CTYPES[self.datatype]*self.nr_of_pixels)()
+            # Acces data to read
+            GF_Read = 0
+        else:
+            data_array = (utils.GDAL_TO_CTYPES[self.datatype]*self.nr_of_pixels)(*data)
+            # Acces data to write
+            GF_Read = 1
+
+        # Access data
+        capi.band_io(self._ptr, GF_Read, offsetx, offsety, sizex, sizey,
+                     byref(data_array), sizex, sizey, self.datatype, 0, 0)
+
+        # Return data as list
+        if not data:
+            return list(data_array)
+
+    def _get_data(self):
+        return self.block()
+
+    def _set_data(self, data):
+        self.block(data=data)
         pass
 
-    data = property(_get_all_data, _set_all_data)
+    data = property(_get_data, _set_data)

@@ -129,7 +129,7 @@ class DataSource(GDALBase):
         "Returns the geotransform of the data source"
         gt = (c_double*6)()
         capi.get_ds_geotransform(self._ptr, byref(gt))
-        return [x for x in gt]
+        return list(gt)
 
     def _set_geotransform(self, gt):
         "Sets the geotransform for the data source"
