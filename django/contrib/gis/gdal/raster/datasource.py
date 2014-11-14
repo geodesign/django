@@ -1,12 +1,12 @@
 # ctypes prerequisites.
-from ctypes import byref
+from ctypes import byref, c_double
 
 # The GDAL C library, OGR exceptions, and the Layer object.
 from django.contrib.gis.gdal.base import GDALBase
 from django.contrib.gis.gdal.raster.driver import Driver
 from django.contrib.gis.gdal.raster.bands import Band
 from django.contrib.gis.gdal.error import OGRException, OGRIndexError
-from django.contrib.gis.gdal.layer import Layer
+from django.contrib.gis.gdal.srs import SpatialReference, CoordTransform
 
 # Getting the ctypes prototypes for the DataSource.
 from django.contrib.gis.gdal.raster.prototypes import ds as capi
@@ -18,7 +18,7 @@ from django.utils.six.moves import xrange
 
 
 class DataSource(GDALBase):
-    "Wraps an GDAL Data Source object."
+    "Wraps an GDAL Raster object."
 
     #### Python 'magic' routines ####
     def __init__(self, ds_input=None, ds_driver=False, write=False, encoding='utf-8'):
@@ -119,13 +119,75 @@ class DataSource(GDALBase):
         "Returns the number of layers in the data source."
         return capi.get_ds_raster_count(self._ptr)
 
-    @property
-    def projection_ref(self):
+
+
+    def _get_geotransform(self):
+        "Returns the geotransform of the data source"
+        gt = (c_double*6)()
+        capi.get_ds_geotransform(self._ptr, byref(gt))
+        return [x for x in gt]
+
+    def _set_geotransform(self, gt):
+        "Sets the geotransform for the data source"
+        if len(gt) != 6 or any([not isinstance(x, (int,float)) for x in gt]):
+            raise ValueError(
+                'GeoTransform must be a list or tuple of 6 numeric values')
+        gt = (c_double*6)(*gt)
+        capi.set_ds_geotransform(self._ptr, byref(gt))
+
+    geotransform = property(_get_geotransform, _set_geotransform)
+
+    #### SpatialReference-related Properties ####
+
+    # The projection reference property
+    # This property is what defines the raster projection, but it is kept
+    # private and should normally be set through the srs property,
+    # either from an srid or an srs object itself.
+    def _get_projection_ref(self):
         return capi.get_ds_projection_ref(self._ptr)
 
-    # def get_geotransform(self):
-    #     "Returns the geotransform of the data source"
-    #     bla = (0,1,2,3,4,5)
-    #     from ctypes import byref, c_double, cast
-    #     return capi.get_ds_geotransform(self._ptr, (c_double*6)(*bla))
+    def _set_projection_ref(self, prj):
+        capi.set_ds_projection_ref(self._ptr, prj)
 
+    _projection_ref = property(_get_projection_ref, _set_projection_ref)
+
+    _srs = None
+
+    # The SRS property
+    def _get_srs(self):
+        "Returns a Spatial Reference object for this Raster."
+        if not self._srs:
+            try:
+                self._srs = SpatialReference(self._projection_ref)
+            except SRSException:
+                raise
+        return self._srs
+
+    def _set_srs(self, srs):
+        "Sets the Spatial Reference object for this Raster."
+
+        if isinstance(srs, SpatialReference):
+            self._srs = srs
+        elif isinstance(srs, six.integer_types + six.string_types):
+            self._srs = SpatialReference(srs)
+        else:
+            raise TypeError('Cannot assign spatial reference with object of type: %s' % type(srs))
+
+        self._projection_ref = self._srs.wkt
+
+    srs = property(_get_srs, _set_srs)
+
+    # The SRID property
+    def _get_srid(self):
+        srs = self.srs
+        if srs:
+            return srs.srid
+        return None
+
+    def _set_srid(self, srid):
+        if isinstance(srid, six.integer_types):
+            self.srs = srid
+        else:
+            raise TypeError('SRID must be set with an integer.')
+
+    srid = property(_get_srid, _set_srid)

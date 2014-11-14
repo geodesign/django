@@ -20,12 +20,47 @@ class Band(GDALBase):
     def sizey(self):
         return capi.get_band_ysize(self._ptr)
 
-# get_band_index = int_output(lgdal.GDALGetBandNumber, [])
-# get_band_description = const_string_output(lgdal.GDALGetDescription, [])
-# get_band_ds = voidptr_output(lgdal.GDALGetBandDataset, [])
-# get_band_nodata_value = double_output(lgdal.GDALGetRasterNoDataValue, [c_int])
-# get_band_minimum = double_output(lgdal.GDALGetRasterMinimum, [c_int])
-# get_band_maximum = double_output(lgdal.GDALGetRasterMaximum, [c_int])
-# get_band_offset = double_output(lgdal.GDALGetRasterOffset, [c_int])
-# get_band_scale = double_output(lgdal.GDALGetRasterScale, [c_int])
-# get_band_unit_type = const_string_output(lgdal.GDALGetRasterUnitType, [c_int])
+    @property
+    def index(self):
+        return capi.get_band_index(self._ptr)
+
+    @property
+    def name(self):
+        return capi.get_band_description(self._ptr)
+
+    @property
+    def dataset(self):
+        return capi.get_band_ds(self._ptr)
+
+    @property
+    def datatype(self):
+        return capi.get_band_datatype(self._ptr)
+
+    def _get_nodata_value(self):
+        return capi.get_band_nodata_value(self._ptr)
+
+    def _set_nodata_value(self, nodata):
+        nodata = float(nodata)
+        capi.set_band_nodata_value(self._ptr, nodata)
+
+    nodata_value = property(_get_nodata_value, _set_nodata_value)
+
+    @property
+    def max(self):
+        return capi.get_band_maximum(self._ptr)
+
+    @property
+    def min(self):
+        return capi.get_band_minimum(self._ptr)
+
+    @property
+    def scale(self):
+        return capi.get_band_scale(self._ptr)
+
+    @property
+    def unit(self):
+        return capi.get_band_unit_type(self._ptr)
+
+    @property
+    def offset(self):
+        return capi.get_band_offset(self._ptr)
