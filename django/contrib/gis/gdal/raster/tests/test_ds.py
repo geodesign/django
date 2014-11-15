@@ -83,12 +83,8 @@ class RasterDataSourceTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             ds.geotransform = [1,2,3,4,5,'6']
 
-    def test_srs(self):
-        "Test spatial reference setting "
-        print self.ds.srs
-
-    def test_ds_projection_reference(self):
-        "Testing spatial reference related methods"
+    def test_ds_projection_and_srs(self):
+        "Testing spatial reference and srs related methods"
         # Test for tif file
         ref = 'PROJCS["Albers_Conical_Equal_Area_Florida_Geographic_Data_Library",GEOGCS["GCS_North_American_1983_HARN",DATUM["NAD83_High_Accuracy_Reference_Network",SPHEROID["GRS 1980",6378137,298.2572221010002,AUTHORITY["EPSG","7019"]],AUTHORITY["EPSG","6152"]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433]],PROJECTION["Albers_Conic_Equal_Area"],PARAMETER["standard_parallel_1",24],PARAMETER["standard_parallel_2",31.5],PARAMETER["latitude_of_center",24],PARAMETER["longitude_of_center",-84],PARAMETER["false_easting",400000],PARAMETER["false_northing",0],UNIT["metre",1,AUTHORITY["EPSG","9001"]]]'
         self.assertEqual(ref, self.ds.srs.wkt)

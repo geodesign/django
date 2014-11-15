@@ -72,11 +72,14 @@ class Band(GDALBase):
         return capi.get_band_offset(self._ptr)
 
     #### IO Section ####
-    def block(self, offsetx=0, offsety=0, sizex=0, sizey=0, data=None):
+    def block(self, offsetx=0, offsety=0, sizex=0, sizey=0, data=None,
+              as_buffer=False):
         """
-        Gets or sets data from raster band. The offset indicates a distance in
+        Gets or sets data for a raster band. The offset indicates a distance in
         pixel values from the upper left corner from which to handle the block
-        of the specified size.
+        of the specified size. If data is provided, it will be used to write in
+        that block, if no input data is provided, the data for the block is
+        returned.
         """
         # Set default size if not provided
         if not sizex:
@@ -104,9 +107,12 @@ class Band(GDALBase):
         capi.band_io(self._ptr, GF_Read, offsetx, offsety, sizex, sizey,
                      byref(data_array), sizex, sizey, self.datatype, 0, 0)
 
-        # Return data as list
+        # Return data as list or buffer
         if not data:
-            return list(data_array)
+            if as_buffer:
+                return buffer(data_array)
+            else:
+                return list(data_array)
 
     def _get_data(self):
         return self.block()

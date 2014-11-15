@@ -49,8 +49,18 @@ class RasterBandDataTest(unittest.TestCase):
         self.assertEqual(1.23, bnd.nodata_value)
 
     def test_data_io(self):
+        "Tests getting and setting complete raster data"
         band = self.ds[0]
         self.assertEqual(set([0, 1, 2, 3, 4, 8, 9]), set(band.data))
 
-        band.data = [1 for x in range(band.nr_of_pixels)]
+        band.data = [1] * band.nr_of_pixels
         self.assertEqual(set([1]), set(band.data))
+
+    def test_block_io(self):
+        "Tests writing of specific raster blocks"
+        ds = DataSource({
+            'sizex': 4, 'sizey': 4, 'bands': 1, 'datatype': 1})
+        bd = ds[0]
+        bd.data = [1] * 16
+        bd.block(2, 2, 2, 2, [2]*4)
+        self.assertEqual(bd.data, [1] * 8 + [1,1,2,2]*2)
