@@ -637,8 +637,6 @@ class Field(RegisterLookupMixin):
         """
         Perform preliminary non-db specific lookup checks and conversions
         """
-        if hasattr(value, 'prepare'):
-            return value.prepare()
         if hasattr(value, '_prepare'):
             return value._prepare()
 
@@ -729,9 +727,6 @@ class Field(RegisterLookupMixin):
                    not connection.features.interprets_empty_strings_as_nulls)):
             return None
         return ""
-
-    def get_validator_unique_lookup_type(self):
-        return '%s__exact' % self.name
 
     def get_choices(self, include_blank=True, blank_choice=BLANK_CHOICE_DASH, limit_choices_to=None):
         """Returns choices with a default blank choices included, for use

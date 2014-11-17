@@ -39,9 +39,9 @@ def update_installed_apps(**kwargs):
         # Rebuild templatetags module cache.
         from django.template import base as mod
         mod.templatetags_modules = []
-        # Rebuild app_template_dirs cache.
-        from django.template.loaders import app_directories as mod
-        mod.app_template_dirs = mod.calculate_app_template_dirs()
+        # Rebuild get_app_template_dirs cache.
+        from django.template.utils import get_app_template_dirs
+        get_app_template_dirs.cache_clear()
         # Rebuild translations cache.
         from django.utils.translation import trans_real
         trans_real._translations = {}
@@ -87,8 +87,8 @@ def clear_context_processors_cache(**kwargs):
 @receiver(setting_changed)
 def clear_template_loaders_cache(**kwargs):
     if kwargs['setting'] == 'TEMPLATE_LOADERS':
-        from django.template import loader
-        loader.template_source_loaders = None
+        from django.template.loaders.utils import get_template_loaders
+        get_template_loaders.cache_clear()
 
 
 @receiver(setting_changed)

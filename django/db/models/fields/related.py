@@ -13,7 +13,7 @@ from django.db.models.fields import (AutoField, Field, IntegerField,
 from django.db.models.lookups import IsNull
 from django.db.models.related import RelatedObject, PathInfo
 from django.db.models.query import QuerySet
-from django.db.models.sql.datastructures import Col
+from django.db.models.expressions import Col
 from django.utils.encoding import force_text, smart_text
 from django.utils import six
 from django.utils.translation import ugettext_lazy as _
@@ -1553,7 +1553,8 @@ class ForeignObject(RelatedField):
     def get_extra_restriction(self, where_class, alias, related_alias):
         """
         Returns a pair condition used for joining and subquery pushdown. The
-        condition is something that responds to as_sql(qn, connection) method.
+        condition is something that responds to as_sql(compiler, connection)
+        method.
 
         Note that currently referring both the 'alias' and 'related_alias'
         will not work in some conditions, like subquery pushdown.
@@ -1786,9 +1787,6 @@ class ForeignKey(ForeignObject):
         attname = self.get_attname()
         column = self.db_column or attname
         return attname, column
-
-    def get_validator_unique_lookup_type(self):
-        return '%s__%s__exact' % (self.name, self.related_field.name)
 
     def get_default(self):
         "Here we check if the default value is an object and return the to_field if so."

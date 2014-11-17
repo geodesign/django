@@ -10,6 +10,11 @@ incompatible changes`_ you'll want to be aware of when upgrading from Django
 features`_, and some features have reached the end of their deprecation process
 and `have been removed`_.
 
+Django 1.8 has been designated as Django's second :ref:`"Long-Term Support"
+(LTS) <lts-releases>` release. It will receive security updates for at least
+three years after its release. Support for the previous LTS, Django 1.4, will
+end 6 months from the release date of Django 1.8.
+
 .. _`new features`: `What's new in Django 1.8`_
 .. _`backwards incompatible changes`: `Backwards incompatible changes in 1.8`_
 .. _`begun the deprecation process for some features`: `Features deprecated in 1.8`_
@@ -51,6 +56,15 @@ New data types
   universally unique identifiers. There is a corresponding :class:`form field
   <django.forms.UUIDField>`. It is stored as the native ``uuid`` data type on
   PostgreSQL and as a fixed length character field on other backends.
+
+Query Expressions
+~~~~~~~~~~~~~~~~~
+
+:doc:`Query Expressions </ref/models/expressions>` allow users to create,
+customize, and compose complex SQL expressions. This has enabled annotate
+to accept expressions other than aggregates. Aggregates are now able to
+reference multiple fields, as well as perform arithmetic, similar to ``F()``
+objects.
 
 Minor features
 ~~~~~~~~~~~~~~
@@ -122,11 +136,14 @@ Minor features
 :mod:`django.contrib.gis`
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* Compatibility shims for ``SpatialRefSys`` and ``GeometryColumns`` changed in
-  Django 1.2 have been removed.
+* A new :doc:`GeoJSON serializer </ref/contrib/gis/serializers>` is now
+  available.
 
 * The Spatialite backend now supports ``Collect`` and ``Extent`` aggregates
   when the database version is 3.0 or later.
+
+* Compatibility shims for ``SpatialRefSys`` and ``GeometryColumns`` changed in
+  Django 1.2 have been removed.
 
 :mod:`django.contrib.messages`
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -173,6 +190,13 @@ Cache
 
 * The ``incr()`` method of the
   ``django.core.cache.backends.locmem.LocMemCache`` backend is now thread-safe.
+
+Cryptography
+^^^^^^^^^^^^
+
+* The ``max_age`` parameter of the
+  :meth:`django.core.signing.TimestampSigner.unsign` method now also accept a
+  :py:class:`datetime.timedelta` object.
 
 Database backends
 ^^^^^^^^^^^^^^^^^
@@ -270,6 +294,13 @@ Internationalization
   module paths. This allows importing several format modules from different
   reusable apps. It also allows overriding those custom formats in your main
   Django project.
+
+Logging
+^^^^^^^
+
+* The :class:`django.utils.log.AdminEmailHandler` class now has a
+  :meth:`~django.utils.log.AdminEmailHandler.send_mail` method to make it more
+  subclass friendly.
 
 Management Commands
 ^^^^^^^^^^^^^^^^^^^
@@ -729,6 +760,14 @@ Miscellaneous
 
   .. _universal newlines: http://www.python.org/dev/peps/pep-0278
 
+* The Memcached cache backends ``MemcachedCache`` and ``PyLibMCCache`` will
+  delete a key if ``set()`` fails. This is necessary to ensure the ``cache_db``
+  session store always fetches the most current session data.
+
+* Private APIs ``override_template_loaders`` and ``override_with_test_loader``
+  in ``django.test.utils`` were removed. Override ``TEMPLATE_LOADERS`` with
+  ``override_settings`` instead.
+
 .. _deprecated-features-1.8:
 
 Features deprecated in 1.8
@@ -845,6 +884,29 @@ Similarly for GIS sitemaps, add ``name='django.contrib.gis.sitemaps.views.kml'``
 or ``name='django.contrib.gis.sitemaps.views.kmz'``.
 
 .. _security issue: https://www.djangoproject.com/weblog/2014/apr/21/security/#s-issue-unexpected-code-execution-using-reverse
+
+Aggregate methods and modules
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``django.db.models.sql.aggregates`` and
+``django.contrib.gis.db.models.sql.aggregates`` modules (both private API), have
+been deprecated as ``django.db.models.aggregates`` and
+``django.contrib.gis.db.models.aggregates`` are now also responsible
+for SQL generation. The old modules will be removed in Django 2.0.
+
+If you were using the old modules, see :doc:`Query Expressions
+</ref/models/expressions>` for instructions on rewriting custom aggregates
+using the new stable API.
+
+The following methods and properties of ``django.db.models.sql.query.Query``
+have also been deprecated and the backwards compatibility shims will be removed
+in Django 2.0:
+
+* ``Query.aggregates``, replaced by ``annotations``.
+* ``Query.aggregate_select``, replaced by ``annotation_select``.
+* ``Query.add_aggregate()``, replaced by ``add_annotation()``.
+* ``Query.set_aggregate_mask()``, replaced by ``set_annotation_mask()``.
+* ``Query.append_aggregate_mask()``, replaced by ``append_annotation_mask()``.
 
 Extending management command arguments through ``Command.option_list``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -970,6 +1032,19 @@ The decorators :func:`~django.test.override_settings` and
 :func:`~django.test.modify_settings` now act at the class level when used as
 class decorators. As a consequence, when overriding ``setUpClass()`` or
 ``tearDownClass()``, the ``super`` implementation should always be called.
+
+``django.template.loader.BaseLoader``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``django.template.loader.BaseLoader`` was renamed to
+``django.template.loaders.base.Loader``. If you've written a custom template
+loader that inherits ``BaseLoader``, you must inherit ``Loader`` instead.
+
+``django.test.utils.TestTemplateLoader``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Private API ``django.test.utils.TestTemplateLoader`` is deprecated in favor of
+``django.template.loaders.locmem.Loader``.
 
 .. removed-features-1.8:
 
