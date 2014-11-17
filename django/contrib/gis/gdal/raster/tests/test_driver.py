@@ -4,7 +4,7 @@ from unittest import skipUnless
 from django.contrib.gis.gdal import HAS_GDAL
 
 if HAS_GDAL:
-    from django.contrib.gis.gdal import OGRException
+    from django.contrib.gis.gdal.error import OGRException
     from django.contrib.gis.gdal.raster.driver import Driver
 
 

@@ -1,9 +1,11 @@
+import struct, binascii
 from ctypes import c_byte, c_uint16, c_int16, c_uint32, c_int32, c_float, c_double
 
 """
 Structure of a PostGIS Raster Header
 
 http://postgis.net/docs/RT_ST_MakeEmptyRaster.html
+http://postgis.net/docs/doxygen/2.2/d8/d5e/structrt__raster__serialized__t.html
 """
 HEADER_NAMES = [
     'endianness',
@@ -83,19 +85,24 @@ POSTGIS
 Band Pixel Type
 
 ftp://ftp.refractions.net/pub/refractions/postgis/docs/html/RT_ST_BandPixelType.html
-http://svn.osgeo.org/postgis/spike/wktraster/doc/RFC2-WellKnownBinaryFormat
+http://postgis.net/docs/doxygen/2.2/de/de7/structrt__band__t.html
+http://postgis.net/docs/doxygen/2.2/d8/d4f/librtcore_8h_a43b88be0a4efc9d67d5c69099fc7776c.html#a43b88be0a4efc9d67d5c69099fc7776c
 
-1BB   - 1-bit boolean
-2BUI  - 2-bit unsigned integer
-4BUI  - 4-bit unsigned integer
-8BSI  - 8-bit signed integer
-8BUI  - 8-bit unsigned integer
-16BSI - 16-bit signed integer
-16BUI - 16-bit unsigned integer
-32BSI - 32-bit signed integer
-32BUI - 32-bit unsigned integer
-32BF  - 32-bit float
-64BF  - 64-bit float
+enum {
+    PT_1BB=0,     /* 1-bit boolean            */
+    PT_2BUI=1,    /* 2-bit unsigned integer   */
+    PT_4BUI=2,    /* 4-bit unsigned integer   */
+    PT_8BSI=3,    /* 8-bit signed integer     */
+    PT_8BUI=4,    /* 8-bit unsigned integer   */
+    PT_16BSI=5,   /* 16-bit signed integer    */
+    PT_16BUI=6,   /* 16-bit unsigned integer  */
+    PT_32BSI=7,   /* 32-bit signed integer    */
+    PT_32BUI=8,   /* 32-bit unsigned integer  */
+    PT_32BF=10,   /* 32-bit float             */
+    PT_64BF=11,   /* 64-bit float             */
+    PT_END=13
+} rt_pixtype;
+
 """
 
 POSTGIS_PIXEL_TYPES = {
@@ -108,8 +115,9 @@ POSTGIS_PIXEL_TYPES = {
     6:  '16BUI',
     7:  '32BSI',
     8:  '32BUI',
-    9:  '32BF',
-    10: '64BF'
+    10: '32BF',
+    11: '64BF',
+    13: 'END'
 }
 
 POSTGIS_PIXEL_TYPES_INV = {v: k for k, v in POSTGIS_PIXEL_TYPES.items()}
@@ -130,17 +138,17 @@ GDAL_TO_POSTGIS = {
 }
 
 POSTGIS_TO_GDAL = {
-    '1BB':   None,
-    '2BUI':  None,
-    '4BUI':  None,
-    '8BSI':  None,
+    '1BB':   'GDT_Byte',
+    '2BUI':  'GDT_Byte',
+    '4BUI':  'GDT_Byte',
+    '8BSI':  'GDT_Byte',
     '8BUI':  'GDT_Byte',
     '16BSI': 'GDT_Int16',
     '16BUI': 'GDT_UInt16',
     '32BSI': 'GDT_Int32',
     '32BUI': 'GDT_UInt32',
     '32BF':  'GDT_Float32',
-    '64BF':  'GDT_CFloat64'
+    '64BF':  'GDT_Float64'
 }
 
 """
@@ -197,8 +205,8 @@ GDAL_TO_STRUCT = {
 
 POSTGIS_TO_STRUCT = {
     '1BB':   '?',
-    '2BUI':  None,
-    '4BUI':  None,
+    '2BUI':  'B',
+    '4BUI':  'B',
     '8BSI':  'b',
     '8BUI':  'B',
     '16BSI': 'h',
@@ -228,14 +236,14 @@ def convert_pixeltype(data, source, target):
         elif target == 'struct':
             return POSTGIS_TO_STRUCT[data]
 
-def pack(self, structure, data):
+def pack(structure, data):
     """Packs data into binary data in little endian format"""
     return binascii.hexlify(struct.pack('<' + structure, *data)).upper()
 
-def unpack(self, structure, data):
+def unpack(structure, data):
     """Unpacks hexlified binary data in little endian format."""
     return struct.unpack('<' + structure, binascii.unhexlify(data))
 
-def chunk(self, data, index):
+def chunk(data, index):
     """Splits string data into two halfs at the input index"""
     return data[:index], data[index:]

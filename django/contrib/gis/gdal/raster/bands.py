@@ -1,16 +1,18 @@
+import binascii
 from ctypes import c_byte, byref
 from django.contrib.gis.gdal.base import GDALBase
+from django.contrib.gis.gdal.error import GDALException
 from django.contrib.gis.gdal.raster.prototypes import ds as capi
 from django.contrib.gis.gdal.raster import utils
 
-class Band(GDALBase):
+class GDALBand(GDALBase):
     """
     Wraps the GDAL Raster Object, needs to be instantiated from a
-    DataSource object.
+    GDALRaster object.
     """
     def __init__(self, band_ptr, ds):
         if not band_ptr:
-            raise OGRException('Cannot create Layer, invalid pointer given')
+            raise GDALException('Cannot create Layer, invalid pointer given')
         self.ptr = band_ptr
         self._ds = ds
 
@@ -94,7 +96,7 @@ class Band(GDALBase):
             raise ValueError('Size is larger than raster.')
         
         # Create c array of required size
-        if not data:
+        if data is None:
             data_array = (utils.GDAL_TO_CTYPES[self.datatype]*self.nr_of_pixels)()
             # Acces data to read
             GF_Read = 0
@@ -108,7 +110,7 @@ class Band(GDALBase):
                      byref(data_array), sizex, sizey, self.datatype, 0, 0)
 
         # Return data as list or buffer
-        if not data:
+        if data is None:
             if as_buffer:
                 return buffer(data_array)
             else:
@@ -119,6 +121,9 @@ class Band(GDALBase):
 
     def _set_data(self, data):
         self.block(data=data)
-        pass
 
     data = property(_get_data, _set_data)
+
+    @property
+    def hex(self):
+        return binascii.hexlify(self.block(as_buffer=True))

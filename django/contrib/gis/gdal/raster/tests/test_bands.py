@@ -6,9 +6,7 @@ from django.contrib.gis.gdal import HAS_GDAL
 from django.contrib.gis.geometry.test_data import get_ds_file, TestDS, TEST_DATA
 
 if HAS_GDAL:
-    from django.contrib.gis.gdal import OGRException
-    from django.contrib.gis.gdal.raster.datasource import DataSource
-    from django.contrib.gis.gdal.raster.bands import Band
+    from django.contrib.gis.gdal.raster.rasters import GDALRaster
 
 valid_data_types = [
     'GDT_Byte', 'GDT_UInt16', 'GDT_Int16', 'GDT_UInt32',
@@ -27,14 +25,14 @@ c_int_p = POINTER(c_int)  # shortcut type
 c_double_p6 = POINTER(c_double*6)
 
 @skipUnless(HAS_GDAL, "GDAL is required")
-class RasterBandDataTest(unittest.TestCase):
+class RasterGDALBandDataTest(unittest.TestCase):
 
     def setUp(self):
         "Setup parent gdal layers"
-        self.d = DataSource({
+        self.d = GDALRaster({
             'sizex': 11, 'sizey': 12, 'bands': 3, 'datatype': 1})
         ds_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data/raster.tif')
-        self.ds = DataSource(ds_path)
+        self.ds = GDALRaster(ds_path)
 
     def test_sizex(self):
         "Testing size property of raster bands."
@@ -55,10 +53,11 @@ class RasterBandDataTest(unittest.TestCase):
 
         band.data = [1] * band.nr_of_pixels
         self.assertEqual(set([1]), set(band.data))
+        self.assertEqual(set([1]), set(self.ds[0].data))
 
     def test_block_io(self):
         "Tests writing of specific raster blocks"
-        ds = DataSource({
+        ds = GDALRaster({
             'sizex': 4, 'sizey': 4, 'bands': 1, 'datatype': 1})
         bd = ds[0]
         bd.data = [1] * 16
