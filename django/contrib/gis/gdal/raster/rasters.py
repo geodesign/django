@@ -1,4 +1,4 @@
-import os
+import os, binascii
 from ctypes import byref, c_double
 
 from django.core.exceptions import ValidationError
@@ -16,6 +16,7 @@ from django.utils.encoding import force_bytes, force_text
 from django.utils import six
 from django.utils.six.moves import xrange
 
+import numpy as np, binascii, Image
 
 class GDALRaster(GDALBase):
     "Wraps an GDAL Raster object."
@@ -45,8 +46,8 @@ class GDALRaster(GDALBase):
             ds = capi.create_ds(
                 ds_driver.ptr, force_bytes(''),
                 ds_input['sizex'], ds_input['sizey'],
-                ds_input['bands'], ds_input['datatype'], None
-            )
+                ds_input['bands'], ds_input['datatype'], None)
+
         elif isinstance(ds_input, six.string_types):
             if os.path.exists(ds_input):
                 try:
@@ -65,14 +66,12 @@ class GDALRaster(GDALBase):
                     self.ptr = capi.create_ds(
                         self.driver.ptr, force_bytes('memrst'),
                         header['sizex'], header['sizey'], 
-                        header['nr_of_bands'], bands[0]['type'], None
-                    )
+                        header['nr_of_bands'], bands[0]['type'], None)
 
                     # Set GeoTransform
                     self.geotransform = [
                         header['originx'], header['scalex'], header['skewx'],
-                        header['originy'], header['skewy'], header['scaley']
-                    ]
+                        header['originy'], header['skewy'], header['scaley']]
 
                     # Set projection
                     self.srid = header['srid']
@@ -83,14 +82,14 @@ class GDALRaster(GDALBase):
                         bnd = self[i]
 
                         # Write data to band
-                        bnd.data = bands[i]['data']
+                        bnd.data = buffer(bands[i]['data'])
 
                         # Set band nodata value if available
                         if bands[i]['nodata']:
                             bnd.nodata = bands[i]['nodata']
                     return
                 except:
-                    raise #GDALException('Could not open the datasource as pgraster')
+                    raise GDALException('Could not open the datasource as pgraster')
         elif isinstance(ds_input, self.ptr_type) and isinstance(ds_driver, Driver.ptr_type):
             ds = ds_input
         else:
@@ -123,7 +122,7 @@ class GDALRaster(GDALBase):
                 raise OGRIndexError('index out of range')
             # Raster band index starts at 1
             index += 1
-            b = capi.get_ds_raster_band(self._ptr, index)
+            b = capi.get_ds_raster_band(self.ptr, index)
         else:
             raise TypeError('Invalid index type: %s' % type(index))
         return GDALBand(b, self)
@@ -138,21 +137,21 @@ class GDALRaster(GDALBase):
 
 
     def add_band(self, dat):
-        capi.add_band_ds(self._ptr, dat)
+        capi.add_band_ds(self.ptr, dat)
 
     @property
     def name(self):
         "Returns the name of the data source."
-        name = capi.get_ds_description(self._ptr)
+        name = capi.get_ds_description(self.ptr)
         return force_text(name, self.encoding, strings_only=True)
 
     @property
     def sizex(self):
-        return capi.get_ds_xsize(self._ptr)
+        return capi.get_ds_xsize(self.ptr)
 
     @property
     def sizey(self):
-        return capi.get_ds_ysize(self._ptr)
+        return capi.get_ds_ysize(self.ptr)
 
     @property
     def nr_of_pixels(self):
@@ -161,12 +160,12 @@ class GDALRaster(GDALBase):
     @property
     def band_count(self):
         "Returns the number of layers in the data source."
-        return capi.get_ds_raster_count(self._ptr)
+        return capi.get_ds_raster_count(self.ptr)
 
     def _get_geotransform(self):
         "Returns the geotransform of the data source"
         gt = (c_double*6)()
-        capi.get_ds_geotransform(self._ptr, byref(gt))
+        capi.get_ds_geotransform(self.ptr, byref(gt))
         return list(gt)
 
     def _set_geotransform(self, gt):
@@ -175,7 +174,7 @@ class GDALRaster(GDALBase):
             raise ValueError(
                 'GeoTransform must be a list or tuple of 6 numeric values')
         gt = (c_double*6)(*gt)
-        capi.set_ds_geotransform(self._ptr, byref(gt))
+        capi.set_ds_geotransform(self.ptr, byref(gt))
 
     geotransform = property(_get_geotransform, _set_geotransform)
 
@@ -186,10 +185,10 @@ class GDALRaster(GDALBase):
     # private and should normally be set through the srs property,
     # either from an srid or an srs object itself.
     def _get_projection_ref(self):
-        return capi.get_ds_projection_ref(self._ptr)
+        return capi.get_ds_projection_ref(self.ptr)
 
     def _set_projection_ref(self, prj):
-        capi.set_ds_projection_ref(self._ptr, prj)
+        capi.set_ds_projection_ref(self.ptr, prj)
 
     _projection_ref = property(_get_projection_ref, _set_projection_ref)
 
@@ -322,10 +321,8 @@ class GDALRaster(GDALBase):
             # Chunk and unpack band data
             nr_of_pixels = header['sizex'] * header['sizey']
             band_data, data = utils.chunk(data, 2 * pixeltype_len * nr_of_pixels)
-            band_data = utils.unpack(pack_type * nr_of_pixels, band_data)
-
             bands.append({'type': pixeltype_gdal, 'nodata': nodata,
-                          'data': band_data})
+                          'data': binascii.unhexlify(band_data)})
 
         # Check that all bands have the same pixeltype
         if len(set([x['type'] for x in bands])) != 1:

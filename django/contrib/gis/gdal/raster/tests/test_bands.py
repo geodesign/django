@@ -67,4 +67,4 @@ class RasterGDALBandDataTest(unittest.TestCase):
     def test_image_plotting(self):
         bnd = self.ds[0]
         img = bnd.img({1: (255,0,0,255), 2:(0,255,0,255), 3:(0,0,255,255), 4:(250,100,0,255)})
-        img.save('test.png')
+        img.save('/home/tam/Desktop/bla2.png')

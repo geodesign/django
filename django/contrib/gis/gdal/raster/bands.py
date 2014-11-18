@@ -20,11 +20,11 @@ class GDALBand(GDALBase):
 
     @property
     def sizex(self):
-        return capi.get_band_xsize(self._ptr)
+        return capi.get_band_xsize(self.ptr)
 
     @property
     def sizey(self):
-        return capi.get_band_ysize(self._ptr)
+        return capi.get_band_ysize(self.ptr)
 
     @property
     def nr_of_pixels(self):
@@ -32,48 +32,48 @@ class GDALBand(GDALBase):
 
     @property
     def index(self):
-        return capi.get_band_index(self._ptr)
+        return capi.get_band_index(self.ptr)
 
     @property
     def name(self):
-        return capi.get_band_description(self._ptr)
+        return capi.get_band_description(self.ptr)
 
     @property
     def dataset(self):
-        return capi.get_band_ds(self._ptr)
+        return capi.get_band_ds(self.ptr)
 
     @property
     def datatype(self):
-        return capi.get_band_datatype(self._ptr)
+        return capi.get_band_datatype(self.ptr)
 
     def _get_nodata_value(self):
         return capi.get_band_nodata_value(self._ptr)
 
     def _set_nodata_value(self, nodata):
         nodata = float(nodata)
-        capi.set_band_nodata_value(self._ptr, nodata)
+        capi.set_band_nodata_value(self.ptr, nodata)
 
     nodata_value = property(_get_nodata_value, _set_nodata_value)
 
     @property
     def max(self):
-        return capi.get_band_maximum(self._ptr)
+        return capi.get_band_maximum(self.ptr)
 
     @property
     def min(self):
-        return capi.get_band_minimum(self._ptr)
+        return capi.get_band_minimum(self.ptr)
 
     @property
     def scale(self):
-        return capi.get_band_scale(self._ptr)
+        return capi.get_band_scale(self.ptr)
 
     @property
     def unit(self):
-        return capi.get_band_unit_type(self._ptr)
+        return capi.get_band_unit_type(self.ptr)
 
     @property
     def offset(self):
-        return capi.get_band_offset(self._ptr)
+        return capi.get_band_offset(self.ptr)
 
     #### IO Section ####
     def block(self, offsetx=0, offsety=0, sizex=0, sizey=0, data=None,
@@ -99,16 +99,19 @@ class GDALBand(GDALBase):
         
         # Create c array of required size
         if data is None:
-            data_array = (utils.GDAL_TO_CTYPES[self.datatype]*self.nr_of_pixels)()
             # Acces data to read
             GF_Read = 0
+            data_array = (utils.GDAL_TO_CTYPES[self.datatype]*self.nr_of_pixels)()
         else:
-            data_array = (utils.GDAL_TO_CTYPES[self.datatype]*self.nr_of_pixels)(*data)
             # Acces data to write
             GF_Read = 1
+            if isinstance(data, buffer):
+                data_array = (utils.GDAL_TO_CTYPES[self.datatype]*self.nr_of_pixels).from_buffer_copy(data)
+            else:
+                data_array = (utils.GDAL_TO_CTYPES[self.datatype]*self.nr_of_pixels)(*data)
 
         # Access data
-        capi.band_io(self._ptr, GF_Read, offsetx, offsety, sizex, sizey,
+        capi.band_io(self.ptr, GF_Read, offsetx, offsety, sizex, sizey,
                      byref(data_array), sizex, sizey, self.datatype, 0, 0)
 
         # Return data as list or buffer
@@ -134,30 +137,25 @@ class GDALBand(GDALBase):
         "Creates an python image from pixel values"
         # Get data as array
         dat = self.block(as_buffer=True)
-        dtyp = np.dtype(int)
         dat = np.frombuffer(dat, dtype='byte')
 
-        # A dictionary will be interpreted as discrete categories
+        # A dictionary will be interpreted as discrete category colormap
         if isinstance(colormap, dict):
+            # Create zeros array
+            rgba = np.zeros((self.sizex * self.sizey, 4))
 
-            # Create pixelmap for this array
-            def mprgba(entry):
-                return colormap[entry] if entry in colormap else (0,0,0,0)
+            # Override matched categories with colors
+            for k,v in colormap.items():
+                rgba[dat==k] = v
 
-            # Vectorize pixelmap
-            mprgba = np.vectorize(mprgba)
-
-            # Map pixels and stack arrays
-            rgba = np.dstack(mprgba(dat))[0]
-
-            # Reshape pixels into image dimensions
-            dat = rgba.reshape(self.sizey, self.sizex,4)
+            # Reshape array
+            rgba = rgba.reshape(self.sizey, self.sizex, 4)
 
             # Create image from array
-            return Image.fromarray(np.uint8(dat))
+            return Image.fromarray(np.uint8(rgba))
         else:
-            # TODO: Continuous scale for this case
+            # TODO: Continuous scale handling
             dat = [(255,255,255,255)]*self.nr_of_pixels
-            img = Image.new('RGBA', (self.sizex, self.sizey))
+            img = Image.new('RGBA', (self.sizey, self.sizex))
             img.putdata(dat)
             return img
