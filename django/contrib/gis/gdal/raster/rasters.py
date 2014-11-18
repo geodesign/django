@@ -283,7 +283,6 @@ class GDALRaster(GDALBase):
 
     def from_postgis_raster(self, data):
         """Returns a gdal in-memory raster from a PostGIS Raster String"""
-        # import numpy
         # Split raster header from data
         header, data = utils.chunk(data, 122)
 
@@ -320,7 +319,7 @@ class GDALRaster(GDALBase):
             # PostGIS datatypes mapped to Gdalconstants data types
             pixeltype_gdal = utils.convert_pixeltype(pixeltype, 'postgis', 'gdal')
 
-            # Chunnk and unpack band data
+            # Chunk and unpack band data
             nr_of_pixels = header['sizex'] * header['sizey']
             band_data, data = utils.chunk(data, 2 * pixeltype_len * nr_of_pixels)
             band_data = utils.unpack(pack_type * nr_of_pixels, band_data)
@@ -332,4 +331,4 @@ class GDALRaster(GDALBase):
         if len(set([x['type'] for x in bands])) != 1:
             raise ValidationError("Band pixeltypes of  are not all equal.")
 
-        return (header, bands)
+        return header, bands

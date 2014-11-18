@@ -1,5 +1,7 @@
-import binascii
+import Image, binascii
+import numpy as np
 from ctypes import c_byte, byref
+
 from django.contrib.gis.gdal.base import GDALBase
 from django.contrib.gis.gdal.error import GDALException
 from django.contrib.gis.gdal.raster.prototypes import ds as capi
@@ -127,3 +129,35 @@ class GDALBand(GDALBase):
     @property
     def hex(self):
         return binascii.hexlify(self.block(as_buffer=True))
+
+    def img(self, colormap):
+        "Creates an python image from pixel values"
+        # Get data as array
+        dat = self.block(as_buffer=True)
+        dtyp = np.dtype(int)
+        dat = np.frombuffer(dat, dtype='byte')
+
+        # A dictionary will be interpreted as discrete categories
+        if isinstance(colormap, dict):
+
+            # Create pixelmap for this array
+            def mprgba(entry):
+                return colormap[entry] if entry in colormap else (0,0,0,0)
+
+            # Vectorize pixelmap
+            mprgba = np.vectorize(mprgba)
+
+            # Map pixels and stack arrays
+            rgba = np.dstack(mprgba(dat))[0]
+
+            # Reshape pixels into image dimensions
+            dat = rgba.reshape(self.sizey, self.sizex,4)
+
+            # Create image from array
+            return Image.fromarray(np.uint8(dat))
+        else:
+            # TODO: Continuous scale for this case
+            dat = [(255,255,255,255)]*self.nr_of_pixels
+            img = Image.new('RGBA', (self.sizex, self.sizey))
+            img.putdata(dat)
+            return img

@@ -63,3 +63,8 @@ class RasterGDALBandDataTest(unittest.TestCase):
         bd.data = [1] * 16
         bd.block(2, 2, 2, 2, [2]*4)
         self.assertEqual(bd.data, [1] * 8 + [1,1,2,2]*2)
+
+    def test_image_plotting(self):
+        bnd = self.ds[0]
+        img = bnd.img({1: (255,0,0,255), 2:(0,255,0,255), 3:(0,0,255,255), 4:(250,100,0,255)})
+        img.save('test.png')

@@ -1,7 +1,6 @@
 from django.db import models
 
 from django.contrib.gis.gdal.raster.rasters import GDALRaster
-
 class RasterField(models.Field):
     """
     Raster field for GeoDjango
@@ -15,7 +14,6 @@ class RasterField(models.Field):
         return 'raster'
 
     def from_db_value(self, value, connection):
-        # Convert PostGIS Raster string to OGR Rasters
         if value:
             value = GDALRaster(value)
 
@@ -36,8 +34,7 @@ class RasterField(models.Field):
     def to_python(self, value):
         if value is None:
             return value
-
-        if isinstance(value, GDALRaster):
+        elif isinstance(value, GDALRaster):
             return value
-
-        return GDALRaster(value)
+        else:
+            return GDALRaster(value)
