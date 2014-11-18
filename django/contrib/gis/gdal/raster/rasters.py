@@ -1,4 +1,6 @@
 import os, binascii
+import numpy as np
+from PIL import Image
 from ctypes import byref, c_double
 
 from django.core.exceptions import ValidationError
@@ -15,8 +17,6 @@ from django.contrib.gis.gdal.raster import utils
 from django.utils.encoding import force_bytes, force_text
 from django.utils import six
 from django.utils.six.moves import xrange
-
-import numpy as np, binascii, Image
 
 class GDALRaster(GDALBase):
     "Wraps an GDAL Raster object."
