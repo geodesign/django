@@ -1,4 +1,5 @@
-import Image, binascii
+from PIL import Image
+import binascii
 import numpy as np
 from ctypes import c_byte, byref
 
