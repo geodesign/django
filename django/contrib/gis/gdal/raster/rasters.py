@@ -335,7 +335,10 @@ class GDALRaster(GDALBase):
         # Pack band data, add to result
         for band in self:
             # Set base structure for raster header - pixeltype
-            structure = 'B'
+            structure = utils.GDAL_PIXEL_TYPES[band.datatype]
+            structure = utils.GDAL_TO_STRUCT[structure]
+            if not structure:
+                raise ValueError('GDAL Pixel type not supported by postgis.')
 
             # Get band header data
             nodata = band.nodata_value
