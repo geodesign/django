@@ -101,7 +101,7 @@ class GDALRaster(GDALBase):
         Allows use of the index [] operator to get a band at the index.
         Cache bands whenever possible.
         """
-        # Prepare band array if its empyt
+        # Prepare band array if its empty
         if not len(self._bands):
             self._bands = [None] * self.band_count
 
@@ -117,7 +117,7 @@ class GDALRaster(GDALBase):
                 self._bands[index] = GDALBand(band, self)
         else:
             raise TypeError('Invalid index type: %s' % type(index))
-        
+
         return self._bands[index]
 
     def __len__(self):
@@ -310,7 +310,7 @@ class GDALRaster(GDALBase):
             bnd = self[i]
 
             # Write data to band
-            bnd.data = buffer(bands[i]['data'])
+            bnd.data = bands[i]['data']
 
             # Set band nodata value if available
             if bands[i]['nodata']:

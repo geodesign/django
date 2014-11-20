@@ -116,7 +116,7 @@ class GDALBand(GDALBase):
 
             # Instantiate ctypes array holding data from a buffer,
             # list, tuple or array
-            if isinstance(data, buffer):
+            if isinstance(data, (str, buffer)):
                 data_array = ctypes_array.from_buffer_copy(data)
             else:
                 data_array = ctypes_array(*data)
