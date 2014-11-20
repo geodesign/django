@@ -25,8 +25,7 @@ class GDALRaster(GDALBase):
         else:
             self._write = 0
 
-        # Registering all the drivers, this needs to be done
-        #  _before_ we try to open up a data source.
+        # Registering all the drivers
         if not capi.get_driver_count():
             capi.register_all()
 
@@ -45,7 +44,7 @@ class GDALRaster(GDALBase):
                 dataset = capi.open_ds(ds_input, self._write)
             except GDALException:
                 raise GDALException('Could not open the datasource at '\
-                                    '"{0}"'.format(ds_input))
+                                    '"{0}".'.format(ds_input))
 
         # Create empty in-memory raster if input data is a dictionary
         elif isinstance(ds_input, dict):
@@ -69,7 +68,7 @@ class GDALRaster(GDALBase):
              isinstance(ds_driver, Driver.ptr_type):
             dataset = ds_input
         else:
-            raise GDALException('Invalid data source input type: {0}'\
+            raise GDALException('Invalid data source input type: "{0}".'\
                                 .format(type(ds_input)))
 
         if dataset:
@@ -127,11 +126,6 @@ class GDALRaster(GDALBase):
         "Returns Description of the Data Source."
         return self.description
 
-    def add_band(self, dat):
-        "Adds a band to the raster"
-        # TODO: Test this
-        capi.add_band_ds(self.ptr, dat)
-
     @property
     def description(self):
         "Returns the name of the data source."
@@ -170,10 +164,11 @@ class GDALRaster(GDALBase):
             raise ValueError(
                 'GeoTransform must be a list or tuple of 6 numeric values')
 
-        # Prepare double array for writing
+        # Prepare ctypes double array for writing
         gtf = (c_double*6)(gtf[0], gtf[1],
-                                    gtf[2], gtf[3],
-                                    gtf[4], gtf[5])
+                           gtf[2], gtf[3],
+                           gtf[4], gtf[5])
+
         # Write geotransform
         capi.set_ds_geotransform(self.ptr, byref(gtf))
 
@@ -244,8 +239,6 @@ class GDALRaster(GDALBase):
         """
         Parses a PostGIS Raster String. Returns the raster header data as
         a dict and the bands as a list.
-        TODO: Review the internal logic of this part in relation to
-              the init function
         """
         # Split raster header from data
         header, data = utils.chunk(data, 122)
