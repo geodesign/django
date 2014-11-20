@@ -1,5 +1,11 @@
+"""
+Utilities for pixel data type conversions between Python, GDAL and PostGIS
+"""
+
 import struct, binascii
-from ctypes import c_byte, c_uint16, c_int16, c_uint32, c_int32, c_float, c_double
+from ctypes import c_byte, c_uint16, c_int16, c_uint32, c_int32, c_float,\
+    c_double
+# TODO: Organize the utils better, maybe split into constants and functions
 
 """
 Structure of a PostGIS Raster Header
@@ -7,6 +13,7 @@ Structure of a PostGIS Raster Header
 http://postgis.net/docs/RT_ST_MakeEmptyRaster.html
 http://postgis.net/docs/doxygen/2.2/d8/d5e/structrt__raster__serialized__t.html
 """
+
 HEADER_NAMES = [
     'endianness',
     'version',

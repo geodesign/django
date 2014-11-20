@@ -32,7 +32,7 @@ class RasterGDALRasterTest(unittest.TestCase):
         for d in valid_data_types:
             ds = GDALRaster({
                 'sizex': 10, 'sizey': 10, 'bands': 1, 'datatype': d})
-            self.assertEqual('', ds.name)
+            self.assertEqual('', ds.description)
 
     def test_invalid_datatypes(self):
         "Testing invalid GDAL Data Source Drivers."
@@ -41,7 +41,7 @@ class RasterGDALRasterTest(unittest.TestCase):
 
     def test_ds_name(self):
         "Testing creation of a GDAL Data Source from a Tif file."
-        self.assertEqual(self.ds_path, self.ds.name)
+        self.assertEqual(self.ds_path, self.ds.description)
 
     def test_ds_size(self):
         "Testing xsize and ysize properties for a GDAL Data Source"

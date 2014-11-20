@@ -1,7 +1,7 @@
 from PIL import Image
 import binascii
 import numpy as np
-from ctypes import c_byte, byref
+from ctypes import byref
 
 from django.contrib.gis.gdal.base import GDALBase
 from django.contrib.gis.gdal.error import GDALException
@@ -21,36 +21,45 @@ class GDALBand(GDALBase):
 
     @property
     def sizex(self):
+        "Returns the number of pixels of the band in x direction."
         return capi.get_band_xsize(self.ptr)
 
     @property
     def sizey(self):
+        "Returns the number of pixels of the band in y direction."
         return capi.get_band_ysize(self.ptr)
 
     @property
     def nr_of_pixels(self):
+        "Returns the total number of pixels of the band."
         return self.sizex*self.sizey
 
     @property
     def index(self):
+        "Returns the index position of this band within the owning raster."
         return capi.get_band_index(self.ptr)
 
     @property
-    def name(self):
+    def description(self):
+        "Returns the description string of the band."
         return capi.get_band_description(self.ptr)
 
     @property
     def dataset(self):
+        "Returns a pointer to the owning dataset."
         return capi.get_band_ds(self.ptr)
 
     @property
     def datatype(self):
+        "Returns the GDAL Pixel Datatype for this band."
         return capi.get_band_datatype(self.ptr)
 
     def _get_nodata_value(self):
+        "Returns the nodata value for this band."
         return capi.get_band_nodata_value(self._ptr)
 
     def _set_nodata_value(self, nodata):
+        "Sets the nodata value for this band."
         nodata = float(nodata)
         capi.set_band_nodata_value(self.ptr, nodata)
 
@@ -58,25 +67,18 @@ class GDALBand(GDALBase):
 
     @property
     def max(self):
+        "Returns the maximum pixel value for this band."
         return capi.get_band_maximum(self.ptr)
 
     @property
     def min(self):
+        "Returns the minimum pixel value for this band."
         return capi.get_band_minimum(self.ptr)
 
     @property
-    def scale(self):
-        return capi.get_band_scale(self.ptr)
+    def hex(self):
+        return binascii.hexlify(self.block(as_buffer=True))
 
-    @property
-    def unit(self):
-        return capi.get_band_unit_type(self.ptr)
-
-    @property
-    def offset(self):
-        return capi.get_band_offset(self.ptr)
-
-    #### IO Section ####
     def block(self, offsetx=0, offsety=0, sizex=0, sizey=0, data=None,
               as_buffer=False):
         """
@@ -97,22 +99,30 @@ class GDALBand(GDALBase):
 
         if sizex > self.sizex or sizey > self.sizey:
             raise ValueError('Size is larger than raster.')
-        
+
+        # Get ctypes type array function
+        ctypes_array = utils.GDAL_TO_CTYPES[self.datatype]*self.nr_of_pixels
+
         # Create c array of required size
         if data is None:
-            # Acces data to read
-            GF_Read = 0
-            data_array = (utils.GDAL_TO_CTYPES[self.datatype]*self.nr_of_pixels)()
+            # Acces band in read mode
+            access_flag = 0
+
+            # Instantiate empty array to load data into
+            data_array = ctypes_array()
         else:
-            # Acces data to write
-            GF_Read = 1
+            # Acces band in write mode
+            access_flag = 1
+
+            # Instantiate ctypes array holding data from a buffer,
+            # list, tuple or array
             if isinstance(data, buffer):
-                data_array = (utils.GDAL_TO_CTYPES[self.datatype]*self.nr_of_pixels).from_buffer_copy(data)
+                data_array = ctypes_array.from_buffer_copy(data)
             else:
-                data_array = (utils.GDAL_TO_CTYPES[self.datatype]*self.nr_of_pixels)(*data)
+                data_array = ctypes_array(*data)
 
         # Access data
-        capi.band_io(self.ptr, GF_Read, offsetx, offsety, sizex, sizey,
+        capi.band_io(self.ptr, access_flag, offsetx, offsety, sizex, sizey,
                      byref(data_array), sizex, sizey, self.datatype, 0, 0)
 
         # Return data as list or buffer
@@ -123,16 +133,14 @@ class GDALBand(GDALBase):
                 return list(data_array)
 
     def _get_data(self):
+        "Gets complete raster data as list."
         return self.block()
 
     def _set_data(self, data):
+        "Sets complete raster data."
         self.block(data=data)
 
     data = property(_get_data, _set_data)
-
-    @property
-    def hex(self):
-        return binascii.hexlify(self.block(as_buffer=True))
 
     def img(self, colormap):
         "Creates an python image from pixel values"
@@ -146,8 +154,8 @@ class GDALBand(GDALBase):
             rgba = np.zeros((self.sizex * self.sizey, 4))
 
             # Override matched categories with colors
-            for k,v in colormap.items():
-                rgba[dat==k] = v
+            for key, color in colormap.items():
+                rgba[dat == key] = color
 
             # Reshape array
             rgba = rgba.reshape(self.sizey, self.sizex, 4)
@@ -156,7 +164,7 @@ class GDALBand(GDALBase):
             return Image.fromarray(np.uint8(rgba))
         else:
             # TODO: Continuous scale handling
-            dat = [(255,255,255,255)]*self.nr_of_pixels
+            dat = [(255, 255, 255, 255)]*self.nr_of_pixels
             img = Image.new('RGBA', (self.sizey, self.sizex))
             img.putdata(dat)
             return img
