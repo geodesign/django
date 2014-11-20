@@ -44,8 +44,6 @@ class GDALRaster(GDALBase):
                 # GDALOpen will auto-detect the data source type.
                 dataset = capi.open_ds(ds_input, self._write)
             except GDALException:
-                # Making the error message more clear rather than something
-                # like "Invalid pointer returned from OGROpen".
                 raise GDALException('Could not open the datasource at '\
                                     '"{0}"'.format(ds_input))
 
@@ -126,9 +124,8 @@ class GDALRaster(GDALBase):
         return self.band_count
 
     def __str__(self):
-        "Returns OGR GetName and Driver for the Data Source."
-        return '%s' % (self.description)
-
+        "Returns Description of the Data Source."
+        return self.description
 
     def add_band(self, dat):
         "Adds a band to the raster"

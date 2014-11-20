@@ -39,17 +39,17 @@ class Driver(GDALBase):
         elif isinstance(dr_input, c_void_p):
             driver = dr_input
         else:
-            raise GDALException('Unrecognized input type for OGR Driver: {0}'\
-                .format(type(dr_input)))
+            raise GDALException('Unrecognized input type for GDAL Driver: '\
+                                '{0}'.format(type(dr_input)))
 
-        # Making sure we get a valid pointer to the OGR Driver
+        # Making sure we get a valid pointer to the GDAL Driver
         if not driver:
-            raise GDALException('Could not initialize OGR Driver on input: {0}'\
-                .format(dr_input))
+            raise GDALException('Could not initialize GDAL Driver '\
+                                'on input: {0}'.format(dr_input))
         self.ptr = driver
 
     def __str__(self):
-        "Returns the string name of the OGR Driver."
+        "Returns the description of the GDAL Driver."
         return capi.get_driver_description(self.ptr)
 
     def _register(self):
