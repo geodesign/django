@@ -29,22 +29,24 @@ class GDALRaster(GDALBase):
         if not capi.get_driver_count():
             capi.register_all()
 
-        # If string is not a file, try to interpret it as postgis raster
-        if isinstance(ds_input, six.string_types) and not os.path.exists(ds_input):
-            try:
-                self._from_postgis_raster(ds_input)
-                return
-            except:
-                raise GDALException('Could not parse postgis raster.')            
-
         # If string is a file path, try setting file as source.
-        elif isinstance(ds_input, six.string_types) and os.path.exists(ds_input):
+        if isinstance(ds_input, six.string_types) and os.path.exists(ds_input):
             try:
                 # GDALOpen will auto-detect the data source type.
                 dataset = capi.open_ds(ds_input, self._write)
             except GDALException:
                 raise GDALException('Could not open the datasource at '\
                                     '"{0}".'.format(ds_input))
+
+        # If string is not a file, try to interpret it as postgis raster
+        elif isinstance(ds_input, six.string_types):
+            try:
+                self._from_postgis_raster(ds_input)
+                # The postgis parser sets the ptr directly, skip the rest
+                # of this function.
+                return
+            except:
+                raise #GDALException('Could not parse postgis raster.')
 
         # Create empty in-memory raster if input data is a dictionary
         elif isinstance(ds_input, dict):
@@ -175,7 +177,6 @@ class GDALRaster(GDALBase):
     geotransform = property(_get_geotransform, _set_geotransform)
 
     #### SpatialReference-related Properties ####
-
     # The projection reference property
     # This property is what defines the raster projection and is used by gdal
     # The projection ref it is kept private and should be accessed and altered
