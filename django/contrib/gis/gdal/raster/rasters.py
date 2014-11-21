@@ -15,7 +15,11 @@ from django.contrib.gis.gdal.raster.prototypes import ds as capi
 from django.contrib.gis.gdal.raster import utils
 
 def mem_ptr_from_dict(header):
-    "Returns pointer to in-memory raster created from input header."
+    """
+    Returns pointer to in-memory raster created from input header.
+    The reqiored keys are sizex, sizey, nr_of_bands and datatype.
+    Where the datatype is a gdal pixeltype as string or integer.
+    """
 
     # If data type is provided as string, map to integer
     pixeltype = header['datatype']
@@ -87,8 +91,6 @@ class GDALRaster(GDALBase):
                 raise GDALException('Could not parse postgis raster.')
 
         # If input is dict, create empty in-memory raster.
-        # The keys needed are sizex, sizey, nr_of_bands
-        # and datatype (gdal pixeltype string or integer).
         elif isinstance(ds_input, dict):
             self.ptr = mem_ptr_from_dict(ds_input)
         # If input is a pointer, use it directly
