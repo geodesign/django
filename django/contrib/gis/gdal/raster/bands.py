@@ -151,7 +151,7 @@ class GDALBand(GDALBase):
         # A dictionary will be interpreted as discrete category colormap
         if isinstance(colormap, dict):
             # Create zeros array
-            rgba = np.zeros((self.sizex * self.sizey, 4))
+            rgba = np.zeros((self.nr_of_pixels, 4))
 
             # Override matched categories with colors
             for key, color in colormap.items():

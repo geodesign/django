@@ -15,7 +15,7 @@ from django.contrib.gis.gdal.raster import utils
 
 
 class GDALRaster(GDALBase):
-    "Wraps an GDAL Raster object."
+    "Wraps a GDAL Data Source object."
 
     #### Python 'magic' routines ####
     def __init__(self, ds_input=None, ds_driver=False, write=False):
@@ -128,6 +128,10 @@ class GDALRaster(GDALBase):
         "Returns Description of the Data Source."
         return self.description
 
+    def __repr__(self):
+        "Short-hand representation because WKB may be very large."
+        return '<Raster object at %s>' % hex(addressof(self.ptr))
+
     @property
     def description(self):
         "Returns the name of the data source."
@@ -235,7 +239,7 @@ class GDALRaster(GDALBase):
 
     srid = property(_get_srid, _set_srid)
 
-    # PostGIS IO
+    ### PostGIS IO
     def _from_postgis_raster(self, data):
         """
         Parses a PostGIS Raster String. Returns the raster header data as
