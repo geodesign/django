@@ -22,11 +22,11 @@ def mem_ptr_from_dict(header):
     if isinstance(pixeltype, str):
         pixeltype = utils.GDAL_PIXEL_TYPES_INV[pixeltype]
 
-    # Instantiate in-memory driver
-    ds_driver = Driver('MEM')
+    # Create in-memory driver
+    driver = Driver('MEM')
 
-    # Create empty in-memory raster with input characteristics 
-    return capi.create_ds(ds_driver.ptr, force_bytes(''),
+    # Create raster from driver with input characteristics
+    return capi.create_ds(driver.ptr, force_bytes(''),
                          header['sizex'], header['sizey'],
                          header['nr_of_bands'], pixeltype, None)
 
@@ -61,7 +61,7 @@ class GDALRaster(GDALBase):
                 # Parse data
                 header, bands = self._parse_postgis_raster(ds_input)
 
-                # Create in-memory raster
+                # Instantiate in-memory driver
                 self.ptr = mem_ptr_from_dict(header)
 
                 # Set projection
@@ -83,10 +83,6 @@ class GDALRaster(GDALBase):
                     # Set band nodata value if available
                     if bands[i]['nodata']:
                         bnd.nodata = bands[i]['nodata']
-
-                # The postgis parser sets the ptr directly, skip the rest
-                # of this function.
-                return
             except:
                 raise GDALException('Could not parse postgis raster.')
 
@@ -95,7 +91,6 @@ class GDALRaster(GDALBase):
         # and datatype (gdal pixeltype string or integer).
         elif isinstance(ds_input, dict):
             self.ptr = mem_ptr_from_dict(ds_input)
-
         # If input is a pointer, use it directly
         elif isinstance(ds_input, self.ptr_type):
             self.ptr = ds_input

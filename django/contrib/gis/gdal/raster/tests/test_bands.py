@@ -48,12 +48,16 @@ class RasterGDALBandDataTest(unittest.TestCase):
 
     def test_data_io(self):
         "Tests getting and setting complete raster data"
-        band = self.ds[0]
-        self.assertEqual(set([0, 1, 2, 3, 4, 8, 9]), set(band.data))
+        ds = GDALRaster({
+            'sizex': 4, 'sizey': 4, 'nr_of_bands': 1, 'datatype': 1})
+
+        band = ds[0]
+        band.data = [1,2,3,4] * (band.nr_of_pixels / 4)
+        self.assertEqual(set([1, 2, 3, 4]), set(band.data))
 
         band.data = [1] * band.nr_of_pixels
         self.assertEqual(set([1]), set(band.data))
-        self.assertEqual(set([1]), set(self.ds[0].data))
+        self.assertEqual(set([1]), set(ds[0].data))
 
     def test_block_io(self):
         "Tests writing of specific raster blocks"
