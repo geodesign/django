@@ -30,7 +30,7 @@ class RasterGDALBandDataTest(unittest.TestCase):
     def setUp(self):
         "Setup parent gdal layers"
         self.d = GDALRaster({
-            'sizex': 11, 'sizey': 12, 'bands': 3, 'datatype': 1})
+            'sizex': 11, 'sizey': 12, 'nr_of_bands': 3, 'datatype': 1})
         ds_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data/raster.tif')
         self.ds = GDALRaster(ds_path)
 
@@ -58,7 +58,7 @@ class RasterGDALBandDataTest(unittest.TestCase):
     def test_block_io(self):
         "Tests writing of specific raster blocks"
         ds = GDALRaster({
-            'sizex': 4, 'sizey': 4, 'bands': 1, 'datatype': 1})
+            'sizex': 4, 'sizey': 4, 'nr_of_bands': 1, 'datatype': 1})
         bd = ds[0]
         bd.data = [1] * 16
         bd.block(2, 2, 2, 2, [2]*4)

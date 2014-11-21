@@ -31,17 +31,21 @@ class RasterGDALRasterTest(unittest.TestCase):
         "Testing creation of GDAL Data Source in memory."
         for d in valid_data_types:
             ds = GDALRaster({
-                'sizex': 10, 'sizey': 10, 'bands': 1, 'datatype': d})
-            self.assertEqual('', ds.description)
+                'sizex': 10, 'sizey': 10, 'nr_of_bands': 1, 'datatype': d})
+            self.assertEqual('', ds.name)
 
     def test_invalid_datatypes(self):
         "Testing invalid GDAL Data Source Drivers."
         self.assertRaises(KeyError, GDALRaster, {
-                'sizex': 10, 'sizey': 10, 'bands': 1, 'datatype': 'abc'})
+                'sizex': 10, 'sizey': 10, 'nr_of_bands': 1, 'datatype': 'abc'})
+
+    def test_driver_getter(self):
+        "Tests if driver is returned"
+        self.assertEqual(self.ds.driver.name, 'GTiff')
 
     def test_ds_name(self):
         "Testing creation of a GDAL Data Source from a Tif file."
-        self.assertEqual(self.ds_path, self.ds.description)
+        self.assertEqual(self.ds_path, self.ds.name)
 
     def test_ds_size(self):
         "Testing xsize and ysize properties for a GDAL Data Source"
@@ -50,7 +54,7 @@ class RasterGDALRasterTest(unittest.TestCase):
 
     def test_ds_band_count(self):
         "Testing band count property for a GDAL Data Source"
-        ds = GDALRaster({'sizex': 11, 'sizey': 12, 'bands': 23, 'datatype': 1})
+        ds = GDALRaster({'sizex': 11, 'sizey': 12, 'nr_of_bands': 23, 'datatype': 1})
         self.assertEqual(23, ds.band_count)
         self.assertEqual(1, self.ds.band_count)
         self.assertEqual(1, len(self.ds))
@@ -69,7 +73,7 @@ class RasterGDALRasterTest(unittest.TestCase):
 
     def test_set_geotransform(self):
         "Test setting geotransfrom and corresponding error msg"
-        ds = GDALRaster({'sizex': 1, 'sizey': 2, 'bands': 1, 'datatype': 1})
+        ds = GDALRaster({'sizex': 1, 'sizey': 2, 'nr_of_bands': 1, 'datatype': 1})
 
         # Test setting the geotransform        
         ds.geotransform = range(6)
@@ -90,7 +94,7 @@ class RasterGDALRasterTest(unittest.TestCase):
         self.assertEqual(ref, self.ds.srs.wkt)
 
         # Test for in-memory creation and setting through srid
-        ds = GDALRaster({'sizex': 1, 'sizey': 2, 'bands': 1, 'datatype': 1})
+        ds = GDALRaster({'sizex': 1, 'sizey': 2, 'nr_of_bands': 1, 'datatype': 1})
         ds.srid = 4326
         srs = SpatialReference(4326)
         self.assertEqual(srs.wkt, ds.srs.wkt)

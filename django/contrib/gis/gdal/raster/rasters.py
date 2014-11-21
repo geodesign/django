@@ -4,6 +4,7 @@ from ctypes import byref, c_double
 from django.core.exceptions import ValidationError
 from django.utils.encoding import force_bytes
 from django.utils import six
+from django.contrib.gis.geometry.regex import hex_regex
 from django.contrib.gis.gdal.base import GDALBase
 from django.contrib.gis.gdal.raster.driver import Driver
 from django.contrib.gis.gdal.raster.bands import GDALBand
@@ -13,12 +14,28 @@ from django.contrib.gis.gdal.srs import SpatialReference
 from django.contrib.gis.gdal.raster.prototypes import ds as capi
 from django.contrib.gis.gdal.raster import utils
 
+def mem_ptr_from_dict(header):
+    "Returns pointer to in-memory raster created from input header."
+
+    # If data type is provided as string, map to integer
+    pixeltype = header['datatype']
+    if isinstance(pixeltype, str):
+        pixeltype = utils.GDAL_PIXEL_TYPES_INV[pixeltype]
+
+    # Instantiate in-memory driver
+    ds_driver = Driver('MEM')
+
+    # Create empty in-memory raster with input characteristics 
+    return capi.create_ds(ds_driver.ptr, force_bytes(''),
+                         header['sizex'], header['sizey'],
+                         header['nr_of_bands'], pixeltype, None)
+
 
 class GDALRaster(GDALBase):
     "Wraps a GDAL Data Source object."
 
     #### Python 'magic' routines ####
-    def __init__(self, ds_input=None, ds_driver=False, write=False):
+    def __init__(self, ds_input, write=False):
         # The write flag.
         if write:
             self._write = 1
@@ -29,63 +46,66 @@ class GDALRaster(GDALBase):
         if not capi.get_driver_count():
             capi.register_all()
 
-        # If string is a file path, try setting file as source.
+        # If input is a valid file path, try setting file as source.
         if isinstance(ds_input, six.string_types) and os.path.exists(ds_input):
             try:
                 # GDALOpen will auto-detect the data source type.
-                dataset = capi.open_ds(ds_input, self._write)
+                self.ptr = capi.open_ds(ds_input, self._write)
             except GDALException:
                 raise GDALException('Could not open the datasource at '\
                                     '"{0}".'.format(ds_input))
 
         # If string is not a file, try to interpret it as postgis raster
-        elif isinstance(ds_input, six.string_types):
+        elif isinstance(ds_input, six.string_types) and hex_regex.match(ds_input):
             try:
-                self._from_postgis_raster(ds_input)
+                # Parse data
+                header, bands = self._parse_postgis_raster(ds_input)
+
+                # Create in-memory raster
+                self.ptr = mem_ptr_from_dict(header)
+
+                # Set projection
+                self.srid = header['srid']
+
+                # Set GeoTransform
+                self.geotransform = [
+                    header['originx'], header['scalex'], header['skewx'],
+                    header['originy'], header['skewy'], header['scaley']]
+
+                # Write bands
+                for i in range(header['nr_of_bands']):
+                    # Get band
+                    bnd = self[i]
+
+                    # Write data to band
+                    bnd.data = bands[i]['data']
+
+                    # Set band nodata value if available
+                    if bands[i]['nodata']:
+                        bnd.nodata = bands[i]['nodata']
+
                 # The postgis parser sets the ptr directly, skip the rest
                 # of this function.
                 return
             except:
-                raise #GDALException('Could not parse postgis raster.')
+                raise GDALException('Could not parse postgis raster.')
 
-        # Create empty in-memory raster if input data is a dictionary
+        # If input is dict, create empty in-memory raster.
+        # The keys needed are sizex, sizey, nr_of_bands
+        # and datatype (gdal pixeltype string or integer).
         elif isinstance(ds_input, dict):
-            # The keys needed are sizex, sizey, bands (nr of bands)
-            # and datatype (gdal pixeltype string or integer).
+            self.ptr = mem_ptr_from_dict(ds_input)
 
-            # If data type is provided as string, map to integer
-            pixeltype = ds_input['datatype']
-            if isinstance(pixeltype, str):
-                pixeltype = utils.GDAL_PIXEL_TYPES_INV[pixeltype]
-
-            # Create empty in-memory raster with input characteristics
-            ds_driver = Driver('MEM')
-            dataset = capi.create_ds(
-                ds_driver.ptr, force_bytes(''),
-                ds_input['sizex'], ds_input['sizey'],
-                ds_input['bands'], pixeltype, None)
-
-        # If input is already ctypes, use it directly
-        elif isinstance(ds_input, self.ptr_type) and\
-             isinstance(ds_driver, Driver.ptr_type):
-            dataset = ds_input
+        # If input is a pointer, use it directly
+        elif isinstance(ds_input, self.ptr_type):
+            self.ptr = ds_input
         else:
             raise GDALException('Invalid data source input type: "{0}".'\
                                 .format(type(ds_input)))
 
-        if dataset:
-            if not isinstance(ds_driver, Driver):
-                ds_driver = capi.get_ds_driver(dataset)
-                ds_driver = Driver(ds_driver)
-            self.ptr = dataset
-            self.driver = ds_driver
-        else:
-            # Raise an exception if the returned pointer is NULL
-            raise GDALException('Invalid data source file "%s"' % ds_input)
-
     def __del__(self):
         "Destroys this DataStructure object."
-        if self._ptr and capi:
+        if self._ptr:
             capi.close_ds(self._ptr)
 
     ### Band access section
@@ -126,14 +146,24 @@ class GDALRaster(GDALBase):
 
     def __str__(self):
         "Returns Description of the Data Source."
-        return self.description
+        return self.name
 
     def __repr__(self):
         "Short-hand representation because WKB may be very large."
         return '<Raster object at %s>' % hex(addressof(self.ptr))
 
+    _driver = None
+
     @property
-    def description(self):
+    def driver(self):
+        "Returns the driver of this data source."
+        if not self._driver:
+            ds_driver = capi.get_ds_driver(self.ptr)
+            self._driver = Driver(ds_driver)
+        return self._driver
+
+    @property
+    def name(self):
         "Returns the name of the data source."
         return capi.get_ds_description(self.ptr)
 
@@ -240,7 +270,7 @@ class GDALRaster(GDALBase):
     srid = property(_get_srid, _set_srid)
 
     ### PostGIS IO
-    def _from_postgis_raster(self, data):
+    def _parse_postgis_raster(self, data):
         """
         Parses a PostGIS Raster String. Returns the raster header data as
         a dict and the bands as a list.
@@ -292,33 +322,11 @@ class GDALRaster(GDALBase):
         # Check that all bands have the same pixeltype
         if len(set([x['type'] for x in bands])) != 1:
             raise ValidationError("Band pixeltypes of  are not all equal.")
+        else:
+            header['datatype'] = bands[0]['type']
 
-        # Create gdal in-memory raster
-        self.driver = Driver('MEM')
-        self.ptr = capi.create_ds(
-            self.driver.ptr, force_bytes('memrst'),
-            header['sizex'], header['sizey'], 
-            header['nr_of_bands'], bands[0]['type'], None)
+        return header, bands
 
-        # Set GeoTransform
-        self.geotransform = [
-            header['originx'], header['scalex'], header['skewx'],
-            header['originy'], header['skewy'], header['scaley']]
-
-        # Set projection
-        self.srid = header['srid']
-
-        # Write bands to gdal raster
-        for i in range(header['nr_of_bands']):
-            # Get band
-            bnd = self[i]
-
-            # Write data to band
-            bnd.data = bands[i]['data']
-
-            # Set band nodata value if available
-            if bands[i]['nodata']:
-                bnd.nodata = bands[i]['nodata']
 
     def to_postgis_raster(self):
         """Retruns the raster as postgis raster string"""

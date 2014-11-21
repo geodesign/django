@@ -50,7 +50,7 @@ class Driver(GDALBase):
 
     def __str__(self):
         "Returns the description of the GDAL Driver."
-        return capi.get_driver_description(self.ptr)
+        return self.name
 
     def _register(self):
         "Attempts to register all the data source drivers."
@@ -66,6 +66,6 @@ class Driver(GDALBase):
         return capi.get_driver_count()
 
     @property
-    def description(self):
+    def name(self):
         "Returns description string for this driver."
         return capi.get_driver_description(self.ptr)
