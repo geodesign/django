@@ -30,9 +30,9 @@ def mem_ptr_from_dict(header):
     driver = Driver('MEM')
 
     # Create raster from driver with input characteristics
-    return capi.create_ds(driver._ptr, force_bytes(''),
-                         header['sizex'], header['sizey'],
-                         header['nr_of_bands'], pixeltype, None)
+    return capi.create_ds(driver.ptr, force_bytes(''),
+                          header['sizex'], header['sizey'],
+                          header['nr_of_bands'], pixeltype, None)
 
 
 class GDALRaster(GDALBase):
@@ -60,12 +60,12 @@ class GDALRaster(GDALBase):
                                     '"{0}".'.format(ds_input))
 
         # If string is not a file, try to interpret it as postgis raster
-        elif isinstance(ds_input, six.string_types):# and hex_regex.match(ds_input):
+        elif isinstance(ds_input, six.string_types) and hex_regex.match(ds_input):
             try:
                 # Parse data
                 header, bands = self._parse_postgis_raster(ds_input)
 
-                # Instantiate in-memory driver
+                # Instantiate in-memory raster
                 self.ptr = mem_ptr_from_dict(header)
 
                 # Set projection
@@ -88,7 +88,7 @@ class GDALRaster(GDALBase):
                     if bands[i]['nodata'] is not None:
                         bnd.nodata_value = bands[i]['nodata']
             except:
-                raise #GDALException('Could not parse postgis raster.')
+                raise GDALException('Could not parse postgis raster.')
 
         # If input is dict, create empty in-memory raster.
         elif isinstance(ds_input, dict):
@@ -116,7 +116,7 @@ class GDALRaster(GDALBase):
     def __getitem__(self, index):
         """
         Allows use of the index [] operator to get a band at the index.
-        Cache initiated bands in _bands array.
+        This caches initiated bands in _bands array.
         """
         # Instantiate band cache array
         if not len(self._bands):
@@ -139,7 +139,7 @@ class GDALRaster(GDALBase):
         return self._bands[index]
 
     def __len__(self):
-        "Returns the number of layers within the data source."
+        "Returns the number of bands within the raster."
         return self.band_count
 
     def __str__(self):
@@ -178,17 +178,22 @@ class GDALRaster(GDALBase):
     @property
     def nr_of_pixels(self):
         "Returns total number of pixels of the raster."
-        return self.sizex*self.sizey
+        return self.sizex * self.sizey
 
     @property
     def band_count(self):
-        "Returns the number of layers in the data source."
+        "Returns the number of bands in the raster."
         return capi.get_ds_raster_count(self.ptr)
 
     def _get_geotransform(self):
         "Returns the geotransform of the data source."
+        # Create empty ctypes double array for data
         gtf = (c_double*6)()
+
+        # Write data to array
         capi.get_ds_geotransform(self.ptr, byref(gtf))
+
+        # Return data as list
         return list(gtf)
 
     def _set_geotransform(self, gtf):
@@ -198,7 +203,7 @@ class GDALRaster(GDALBase):
             raise ValueError(
                 'GeoTransform must be a list or tuple of 6 numeric values')
 
-        # Prepare ctypes double array for writing
+        # Prepare ctypes double array with input data for writing
         gtf = (c_double*6)(gtf[0], gtf[1],
                            gtf[2], gtf[3],
                            gtf[4], gtf[5])
@@ -209,10 +214,11 @@ class GDALRaster(GDALBase):
     geotransform = property(_get_geotransform, _set_geotransform)
 
     #### SpatialReference-related Properties ####
+
     # The projection reference property
-    # This property is what defines the raster projection and is used by gdal
-    # The projection ref it is kept private and should be accessed and only
-    # altered by setting the srs property either from an srid or an srs object.
+    # This property is what defines the raster projection and is used by gdal.
+    # However, the projection ref it is kept private and should only be accessed
+    # or altered through the srid or the srs property.
     def _get_projection_ref(self):
         "Returns projectction reference string as WKT."
         return capi.get_ds_projection_ref(self.ptr)
@@ -267,7 +273,7 @@ class GDALRaster(GDALBase):
 
     srid = property(_get_srid, _set_srid)
 
-    ### PostGIS IO
+    #### PostGIS IO ####
     def _parse_postgis_raster(self, data):
         """
         Parses a PostGIS Raster String. Returns the raster header data as
