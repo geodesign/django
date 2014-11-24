@@ -148,7 +148,7 @@ POSTGIS_TO_GDAL = {
     '1BB':   'GDT_Byte',
     '2BUI':  'GDT_Byte',
     '4BUI':  'GDT_Byte',
-    '8BSI':  'GDT_Byte',
+    '8BSI':  'GDT_Int16',
     '8BUI':  'GDT_Byte',
     '16BSI': 'GDT_Int16',
     '16BUI': 'GDT_UInt16',

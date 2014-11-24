@@ -1,6 +1,7 @@
 from django.db import models
-
 from django.contrib.gis.gdal.raster.rasters import GDALRaster
+
+
 class RasterField(models.Field):
     """
     Raster field for GeoDjango
@@ -16,7 +17,6 @@ class RasterField(models.Field):
     def from_db_value(self, value, connection):
         if value:
             value = GDALRaster(value)
-
         return value
 
     def get_prep_value(self, value):

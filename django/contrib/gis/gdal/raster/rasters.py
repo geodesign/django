@@ -1,5 +1,5 @@
 import os, binascii
-from ctypes import byref, c_double
+from ctypes import byref, c_double, addressof
 
 from django.core.exceptions import ValidationError
 from django.utils.encoding import force_bytes
@@ -30,7 +30,7 @@ def mem_ptr_from_dict(header):
     driver = Driver('MEM')
 
     # Create raster from driver with input characteristics
-    return capi.create_ds(driver.ptr, force_bytes(''),
+    return capi.create_ds(driver._ptr, force_bytes(''),
                          header['sizex'], header['sizey'],
                          header['nr_of_bands'], pixeltype, None)
 
@@ -60,7 +60,7 @@ class GDALRaster(GDALBase):
                                     '"{0}".'.format(ds_input))
 
         # If string is not a file, try to interpret it as postgis raster
-        elif isinstance(ds_input, six.string_types) and hex_regex.match(ds_input):
+        elif isinstance(ds_input, six.string_types):# and hex_regex.match(ds_input):
             try:
                 # Parse data
                 header, bands = self._parse_postgis_raster(ds_input)
@@ -85,10 +85,10 @@ class GDALRaster(GDALBase):
                     bnd.data = bands[i]['data']
 
                     # Set band nodata value if available
-                    if bands[i]['nodata']:
-                        bnd.nodata = bands[i]['nodata']
+                    if bands[i]['nodata'] is not None:
+                        bnd.nodata_value = bands[i]['nodata']
             except:
-                raise GDALException('Could not parse postgis raster.')
+                raise #GDALException('Could not parse postgis raster.')
 
         # If input is dict, create empty in-memory raster.
         elif isinstance(ds_input, dict):
@@ -106,35 +106,36 @@ class GDALRaster(GDALBase):
             capi.close_ds(self._ptr)
 
     ### Band access section
-    _bands = []
-
     def __iter__(self):
-        "Allows for iteration over the layers in a data source."
+        "Allows for iteration over the bands in a data source."
         for i in xrange(self.band_count):
             yield self[i]
+
+    _bands = []
 
     def __getitem__(self, index):
         """
         Allows use of the index [] operator to get a band at the index.
-        Cache bands whenever possible.
+        Cache initiated bands in _bands array.
         """
-        # Prepare band array if its empty
+        # Instantiate band cache array
         if not len(self._bands):
-            self._bands = [None] * self.band_count
+            self._bands = [None] * len(self)
 
         if isinstance(index, int):
             if index < 0 or index >= len(self._bands):
-                raise OGRIndexError('index out of range')
+                raise OGRIndexError('Index out of range.')
 
-            # Check for cache first
-            if self._bands[index] == None:
-                # Raster band index starts at 1
+            # Create GDALBand if not cached
+            if not self._bands[index]:
+                # GDAL Raster band counts start at 1
                 band_index = index + 1
-                band = capi.get_ds_raster_band(self.ptr, band_index)
-                self._bands[index] = GDALBand(band, self)
+                band_ptr = capi.get_ds_raster_band(self.ptr, band_index)
+                self._bands[index] = GDALBand(band_ptr)
         else:
             raise TypeError('Invalid index type: %s' % type(index))
 
+        # Return band
         return self._bands[index]
 
     def __len__(self):
@@ -210,8 +211,8 @@ class GDALRaster(GDALBase):
     #### SpatialReference-related Properties ####
     # The projection reference property
     # This property is what defines the raster projection and is used by gdal
-    # The projection ref it is kept private and should be accessed and altered
-    # throug setting the srs property either from an srid or an srs object.
+    # The projection ref it is kept private and should be accessed and only
+    # altered by setting the srs property either from an srid or an srs object.
     def _get_projection_ref(self):
         "Returns projectction reference string as WKT."
         return capi.get_ds_projection_ref(self.ptr)
@@ -327,7 +328,6 @@ class GDALRaster(GDALBase):
 
     def to_postgis_raster(self):
         """Retruns the raster as postgis raster string"""
-
         # Get GDAL geotransform for header data
         gtf = self.geotransform
 
@@ -344,30 +344,42 @@ class GDALRaster(GDALBase):
 
         # Pack band data, add to result
         for band in self:
-            # Set base structure for raster header - pixeltype
-            structure = utils.GDAL_PIXEL_TYPES[band.datatype]
-            structure = utils.GDAL_TO_STRUCT[structure]
-            if not structure:
-                raise ValueError('GDAL Pixel type not supported by postgis.')
+            # Set byte struct for converting datatype and nodata flag.
+            # In postgis, the datatype and the nodata flag are combined
+            # in a 8BUI. The integer is composed as the datatype integer
+            # plus 64 (one bit) as a flag for existing nodata values.
+            #
+            # I.e. if the byte value is 71, the datatype is 71-64 = 7 (32BSI)
+            # and there a nodata value is set.
+            structure = 'B'
 
-            # Get band header data
-            nodata = band.nodata_value
+            # Get band pixel type structure string
             pixeltype = utils.convert_pixeltype(band.datatype,
                                                 'gdal', 'postgis')
 
-            if nodata < 0 and pixeltype in utils.GDAL_PIXEL_TYPES_UNISGNED:
-                nodata = abs(nodata)
-
+            # Get nodata value, if exists add to header
+            nodata = band.nodata_value
             if nodata is not None:
-                # Setup packing structure for header with nodata
+                # Sanity check on nodata value
+                if nodata < 0 and pixeltype in utils.GDAL_PIXEL_TYPES_UNISGNED:
+                    print 'WARNING: Negative nodata value for unsigned type.'
+                    nodata = abs(nodata)
+
+                # Add nodata packing structure
                 structure += utils.convert_pixeltype(pixeltype,
                                                      'postgis', 'struct')
 
-                # Add flag to point to existing nodata type
+                # Add nodata flag to pixeltype byte
                 pixeltype += 64
 
-            # Pack header
-            bandheader = utils.pack(structure, (pixeltype, nodata))
+                # Set header tuple with nodata value
+                bandheader = (pixeltype, nodata)
+            else:
+                # Set header tuple without nodata value
+                bandheader = (pixeltype, )
+
+            # Pack band header
+            bandheader = utils.pack(structure, bandheader)
 
             # Add band to result string
             result += bandheader + band.hex

@@ -5,8 +5,7 @@ class RasterModel(models.Model):
     rast = RasterField()
 
     class Meta:
-        # abstract = True
-        app_label = 'geoapp'
+        app_label = 'gis'
 
     def __str__(self):
         return str(self.id)

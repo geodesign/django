@@ -1,7 +1,7 @@
 from PIL import Image
 import binascii
 import numpy as np
-from ctypes import byref
+from ctypes import byref, POINTER, c_int
 
 from django.contrib.gis.gdal.base import GDALBase
 from django.contrib.gis.gdal.error import GDALException
@@ -13,11 +13,10 @@ class GDALBand(GDALBase):
     Wraps the GDAL Raster Object, needs to be instantiated from a
     GDALRaster object.
     """
-    def __init__(self, band_ptr, ds):
+    def __init__(self, band_ptr):
         if not band_ptr:
             raise GDALException('Cannot create Layer, invalid pointer given')
         self.ptr = band_ptr
-        self._ds = ds
 
     @property
     def sizex(self):
@@ -56,11 +55,14 @@ class GDALBand(GDALBase):
 
     def _get_nodata_value(self):
         "Returns the nodata value for this band."
-        return capi.get_band_nodata_value(self._ptr)
+        nodata_exists = c_int()
+        value = capi.get_band_nodata_value(self.ptr, nodata_exists)
+        return value if nodata_exists else None
 
     def _set_nodata_value(self, nodata):
         "Sets the nodata value for this band."
-        nodata = float(nodata)
+        if not isinstance(nodata, (int, float)):
+            raise ValueError('Nodata value nees to be a float.')
         capi.set_band_nodata_value(self.ptr, nodata)
 
     nodata_value = property(_get_nodata_value, _set_nodata_value)
@@ -77,7 +79,7 @@ class GDALBand(GDALBase):
 
     @property
     def hex(self):
-        return binascii.hexlify(self.block(as_buffer=True))
+        return binascii.hexlify(self.block(as_buffer=True)).upper()
 
     def block(self, offsetx=0, offsety=0, sizex=0, sizey=0, data=None,
               as_buffer=False):

@@ -68,8 +68,7 @@ class RasterGDALRasterTest(unittest.TestCase):
         "Tests that geotransform returns the right parameters"
         self.assertAlmostEqual(
             [511700.4680706557, 100.0, 0.0, 435103.3771231986, 0.0, -100.0],
-            self.ds.geotransform
-        )
+            self.ds.geotransform)
 
     def test_set_geotransform(self):
         "Test setting geotransfrom and corresponding error msg"
@@ -102,7 +101,7 @@ class RasterGDALRasterTest(unittest.TestCase):
     def test_pgraster_unpacking(self):
         "Tests unpacking all postgis raster data types"
         # Expected values for data types
-        expected = {2: 16, 3: -16, 4: 32, 5: -32, 6: 32.32, 7: 64.64}
+        expected = {2: 16, 3: -16, 4: 32, 5: -32, 6: 32.3223, 7: 64.6446}
 
         # Loop through all test raster strings
         for key, rast in pgrasters.items():
@@ -110,7 +109,7 @@ class RasterGDALRasterTest(unittest.TestCase):
             result = list(set(ds[0].data))[0]
             dt = ds[0].datatype
             if dt == 1:
-                self.assertTrue(result in [1,3,8])
+                self.assertTrue(result in [1,2,4,8])
             else:
                 self.assertTrue(round(result - expected[dt], 5) == 0)
 

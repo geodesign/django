@@ -27,22 +27,20 @@ c_double_p6 = POINTER(c_double*6)
 @skipUnless(HAS_GDAL, "GDAL is required")
 class RasterGDALBandDataTest(unittest.TestCase):
 
-    def setUp(self):
-        "Setup parent gdal layers"
-        self.d = GDALRaster({
-            'sizex': 11, 'sizey': 12, 'nr_of_bands': 3, 'datatype': 1})
-        ds_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data/raster.tif')
-        self.ds = GDALRaster(ds_path)
-
     def test_sizex(self):
         "Testing size property of raster bands."
-        for band in self.d:
+        ds = GDALRaster({
+            'sizex': 11, 'sizey': 12, 'nr_of_bands': 3, 'datatype': 1})
+        for band in ds:
             self.assertEqual(11, band.sizex)
             self.assertEqual(12, band.sizey)
 
     def test_nodata_value(self):
         "Set setting and getting nodata value for band"
-        bnd = self.d[0]
+        ds = GDALRaster({
+            'sizex': 11, 'sizey': 12, 'nr_of_bands': 1, 'datatype': 1})
+        bnd = ds[0]
+        self.assertEqual(None, bnd.nodata_value)
         bnd.nodata_value = 1.23
         self.assertEqual(1.23, bnd.nodata_value)
 
@@ -69,6 +67,9 @@ class RasterGDALBandDataTest(unittest.TestCase):
         self.assertEqual(bd.data, [1] * 8 + [1,1,2,2]*2)
 
     def test_image_plotting(self):
-        bnd = self.ds[0]
+        ds_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data/raster.tif')
+        ds = GDALRaster(ds_path)
+        bnd = ds[0]
         img = bnd.img({1: (255,0,0,255), 2:(0,255,0,255), 3:(0,0,255,255), 4:(250,100,0,255)})
-        img.save('/home/tam/Desktop/bla2.png')
+        self.assertEqual((163, 174), img.size)
+        #img.save('bla.png')
