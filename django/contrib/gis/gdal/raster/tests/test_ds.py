@@ -115,6 +115,6 @@ class RasterGDALRasterTest(unittest.TestCase):
 
     def test_pgraster_packing(self):
         "Tests packing postgis raster data"
-        result = self.ds.to_postgis_raster()
+        result = self.ds.wkb
         ds = GDALRaster(str(result))
         self.assertEqual(set(self.ds[0].data), set(ds[0].data))

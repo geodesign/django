@@ -25,7 +25,7 @@ class RasterField(models.Field):
         if value is None:
             return value
         elif isinstance(value, GDALRaster):
-            return value.to_postgis_raster()
+            return value.wkb
         elif isinstance(value, str):
             return value
         else:

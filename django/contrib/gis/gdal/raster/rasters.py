@@ -1,8 +1,6 @@
-import os, binascii
+import os
 from ctypes import byref, c_double, addressof
 
-from django.core.exceptions import ValidationError
-from django.utils.encoding import force_bytes
 from django.utils import six
 from django.contrib.gis.geometry.regex import hex_regex
 from django.contrib.gis.gdal.base import GDALBase
@@ -14,31 +12,12 @@ from django.contrib.gis.gdal.srs import SpatialReference
 from django.contrib.gis.gdal.raster.prototypes import ds as capi
 from django.contrib.gis.gdal.raster import utils
 
-def mem_ptr_from_dict(header):
-    """
-    Returns pointer to in-memory raster created from input header.
-    The reqiored keys are sizex, sizey, nr_of_bands and datatype.
-    Where the datatype is a gdal pixeltype as string or integer.
-    """
-
-    # If data type is provided as string, map to integer
-    pixeltype = header['datatype']
-    if isinstance(pixeltype, str):
-        pixeltype = utils.GDAL_PIXEL_TYPES_INV[pixeltype]
-
-    # Create in-memory driver
-    driver = Driver('MEM')
-
-    # Create raster from driver with input characteristics
-    return capi.create_ds(driver.ptr, force_bytes(''),
-                          header['sizex'], header['sizey'],
-                          header['nr_of_bands'], pixeltype, None)
-
 
 class GDALRaster(GDALBase):
     "Wraps a GDAL Data Source object."
 
-    #### Python 'magic' routines ####
+    #### Python magic routines ####
+
     def __init__(self, ds_input, write=False):
         # The write flag.
         if write:
@@ -63,10 +42,10 @@ class GDALRaster(GDALBase):
         elif isinstance(ds_input, six.string_types) and hex_regex.match(ds_input):
             try:
                 # Parse data
-                header, bands = self._parse_postgis_raster(ds_input)
+                header, bands = utils.parse_wkb(ds_input)
 
                 # Instantiate in-memory raster
-                self.ptr = mem_ptr_from_dict(header)
+                self.ptr = utils.mem_ptr_from_dict(header)
 
                 # Set projection
                 self.srid = header['srid']
@@ -88,11 +67,11 @@ class GDALRaster(GDALBase):
                     if bands[i]['nodata'] is not None:
                         bnd.nodata_value = bands[i]['nodata']
             except:
-                raise GDALException('Could not parse postgis raster.')
+                raise #GDALException('Could not parse postgis raster.')
 
         # If input is dict, create empty in-memory raster.
         elif isinstance(ds_input, dict):
-            self.ptr = mem_ptr_from_dict(ds_input)
+            self.ptr = utils.mem_ptr_from_dict(ds_input)
         # If input is a pointer, use it directly
         elif isinstance(ds_input, self.ptr_type):
             self.ptr = ds_input
@@ -105,12 +84,19 @@ class GDALRaster(GDALBase):
         if self._ptr:
             capi.close_ds(self._ptr)
 
-    ### Band access section
-    def __iter__(self):
-        "Allows for iteration over the bands in a data source."
-        for i in xrange(self.band_count):
-            yield self[i]
+    def __str__(self):
+        "Returns Description of the Data Source."
+        return self.name
 
+    def __repr__(self):
+        "Short-hand representation because WKB may be very large."
+        return '<Raster object at %s>' % hex(addressof(self.ptr))
+
+    def __len__(self):
+        "Returns the number of bands within the raster."
+        return self.band_count
+
+    # For accessing the raster bands
     _bands = []
 
     def __getitem__(self, index):
@@ -138,17 +124,12 @@ class GDALRaster(GDALBase):
         # Return band
         return self._bands[index]
 
-    def __len__(self):
-        "Returns the number of bands within the raster."
-        return self.band_count
+    def __iter__(self):
+        "Allows for iteration over the bands in a data source."
+        for i in xrange(self.band_count):
+            yield self[i]
 
-    def __str__(self):
-        "Returns Description of the Data Source."
-        return self.name
-
-    def __repr__(self):
-        "Short-hand representation because WKB may be very large."
-        return '<Raster object at %s>' % hex(addressof(self.ptr))
+    #### Raster Driver ####
 
     _driver = None
 
@@ -159,6 +140,8 @@ class GDALRaster(GDALBase):
             ds_driver = capi.get_ds_driver(self.ptr)
             self._driver = Driver(ds_driver)
         return self._driver
+
+    #### Basic raster Properties ####
 
     @property
     def name(self):
@@ -185,6 +168,9 @@ class GDALRaster(GDALBase):
         "Returns the number of bands in the raster."
         return capi.get_ds_raster_count(self.ptr)
 
+    #### SpatialReference-related Properties ####
+
+    # Geotransform property (location and scale of raster)
     def _get_geotransform(self):
         "Returns the geotransform of the data source."
         # Create empty ctypes double array for data
@@ -212,8 +198,6 @@ class GDALRaster(GDALBase):
         capi.set_ds_geotransform(self.ptr, byref(gtf))
 
     geotransform = property(_get_geotransform, _set_geotransform)
-
-    #### SpatialReference-related Properties ####
 
     # The projection reference property
     # This property is what defines the raster projection and is used by gdal.
@@ -273,67 +257,12 @@ class GDALRaster(GDALBase):
 
     srid = property(_get_srid, _set_srid)
 
-    #### PostGIS IO ####
-    def _parse_postgis_raster(self, data):
-        """
-        Parses a PostGIS Raster String. Returns the raster header data as
-        a dict and the bands as a list.
-        """
-        # Split raster header from data
-        header, data = utils.chunk(data, 122)
+    #### Raster IO Section ####
 
-        # Process header
-        header = utils.unpack(utils.HEADER_STRUCTURE, header)
-        header = dict(zip(utils.HEADER_NAMES, header))
-
-        nr_of_pixels = header['sizex'] * header['sizey']
-
-        # Process bands
-        bands = []
-
-        # Parse band data
-        while data:
-            # Get pixel type for this band
-            pixeltype, data = utils.chunk(data, 2)
-            pixeltype = utils.unpack('B', pixeltype)[0]
-
-            # Substract nodata byte from band nodata value if exists
-            has_nodata = pixeltype >= 64
-            if has_nodata:
-                pixeltype -= 64
-
-            # String with hex type name for unpacking
-            pack_type = utils.convert_pixeltype(pixeltype, 'postgis', 'struct')
-
-            # Length in bytes of the hex type
-            pixeltype_len = utils.STRUCT_SIZE[pack_type]
-
-            # Get band nodata value if exists
-            if has_nodata:
-                nodata, data = utils.chunk(data, 2 * pixeltype_len)
-                nodata = utils.unpack(pack_type, nodata)[0]
-            else:
-                nodata = None
-
-            # PostGIS datatypes mapped to Gdalconstants data types
-            pixtype_gdal = utils.convert_pixeltype(pixeltype, 'postgis', 'gdal')
-
-            # Chunk and unpack band data
-            band, data = utils.chunk(data, 2 * pixeltype_len * nr_of_pixels)
-            bands.append({'type': pixtype_gdal, 'nodata': nodata,
-                          'data': binascii.unhexlify(band)})
-
-        # Check that all bands have the same pixeltype
-        if len(set([x['type'] for x in bands])) != 1:
-            raise ValidationError("Band pixeltypes of  are not all equal.")
-        else:
-            header['datatype'] = bands[0]['type']
-
-        return header, bands
-
-
-    def to_postgis_raster(self):
-        """Retruns the raster as postgis raster string"""
+    # PostGIS property
+    @property
+    def wkb(self):
+        """Retruns the raster as PostGIS WKB."""
         # Get GDAL geotransform for header data
         gtf = self.geotransform
 

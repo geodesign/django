@@ -5,6 +5,10 @@ Utilities for pixel data type conversions between Python, GDAL and PostGIS
 import struct, binascii
 from ctypes import c_byte, c_uint16, c_int16, c_uint32, c_int32, c_float,\
     c_double
+from django.core.exceptions import ValidationError
+from django.utils.encoding import force_bytes
+from django.contrib.gis.gdal.raster.driver import Driver
+from django.contrib.gis.gdal.raster.prototypes import ds as capi
 # TODO: Organize the utils better, maybe split into constants and functions
 
 """
@@ -254,3 +258,80 @@ def unpack(structure, data):
 def chunk(data, index):
     """Splits string data into two halfs at the input index"""
     return data[:index], data[index:]
+
+def mem_ptr_from_dict(header):
+    """
+    Returns pointer to in-memory raster created from input header.
+    The reqiored keys are sizex, sizey, nr_of_bands and datatype.
+    Where the datatype is a gdal pixeltype as string or integer.
+    """
+
+    # If data type is provided as string, map to integer
+    pixeltype = header['datatype']
+    if isinstance(pixeltype, str):
+        pixeltype = GDAL_PIXEL_TYPES_INV[pixeltype]
+
+    # Create in-memory driver
+    driver = Driver('MEM')
+
+    # Create raster from driver with input characteristics
+    return capi.create_ds(driver.ptr, force_bytes(''),
+                          header['sizex'], header['sizey'],
+                          header['nr_of_bands'], pixeltype, None)
+
+def parse_wkb(data):
+    """
+    Parses a PostGIS WKB Raster String. Returns the raster header data as
+    a dict and the bands as a list.
+    """
+    # Split raster header from data
+    header, data = chunk(data, 122)
+
+    # Process header
+    header = unpack(HEADER_STRUCTURE, header)
+    header = dict(zip(HEADER_NAMES, header))
+
+    nr_of_pixels = header['sizex'] * header['sizey']
+
+    # Process bands
+    bands = []
+
+    # Parse band data
+    while data:
+        # Get pixel type for this band
+        pixeltype, data = chunk(data, 2)
+        pixeltype = unpack('B', pixeltype)[0]
+
+        # Substract nodata byte from band nodata value if exists
+        has_nodata = pixeltype >= 64
+        if has_nodata:
+            pixeltype -= 64
+
+        # String with hex type name for unpacking
+        pack_type = convert_pixeltype(pixeltype, 'postgis', 'struct')
+
+        # Length in bytes of the hex type
+        pixeltype_len = STRUCT_SIZE[pack_type]
+
+        # Get band nodata value if exists
+        if has_nodata:
+            nodata, data = chunk(data, 2 * pixeltype_len)
+            nodata = unpack(pack_type, nodata)[0]
+        else:
+            nodata = None
+
+        # PostGIS datatypes mapped to Gdalconstants data types
+        pixtype_gdal = convert_pixeltype(pixeltype, 'postgis', 'gdal')
+
+        # Chunk and unpack band data
+        band, data = chunk(data, 2 * pixeltype_len * nr_of_pixels)
+        bands.append({'type': pixtype_gdal, 'nodata': nodata,
+                      'data': binascii.unhexlify(band)})
+
+    # Check that all bands have the same pixeltype
+    if len(set([x['type'] for x in bands])) != 1:
+        raise ValidationError("Band pixeltypes are not all equal.")
+    else:
+        header['datatype'] = bands[0]['type']
+
+    return header, bands
