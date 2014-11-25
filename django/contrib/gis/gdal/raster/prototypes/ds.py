@@ -21,6 +21,8 @@ get_driver_description = const_string_output(lgdal.GDALGetDescription, [c_void_p
 create_ds = voidptr_output(lgdal.GDALCreate, [c_void_p, c_char_p, c_int, c_int, c_int, c_int])
 open_ds = voidptr_output(lgdal.GDALOpen, [c_char_p, c_int])
 close_ds = void_output(lgdal.GDALClose, [c_void_p])
+copy_ds = voidptr_output(lgdal.GDALCreateCopy, [c_void_p, c_char_p, c_void_p, c_int, 
+                                                POINTER(c_char_p), c_void_p, c_void_p])
 add_band_ds = void_output(lgdal.GDALAddBand, [c_void_p, c_int])
 get_ds_description = const_string_output(lgdal.GDALGetDescription, [])
 get_ds_driver = voidptr_output(lgdal.GDALGetDatasetDriver, [c_void_p])
@@ -46,3 +48,8 @@ get_band_nodata_value = double_output(lgdal.GDALGetRasterNoDataValue, [c_void_p,
 set_band_nodata_value = void_output(lgdal.GDALSetRasterNoDataValue, [c_void_p, c_double])
 get_band_minimum = double_output(lgdal.GDALGetRasterMinimum, [c_void_p])
 get_band_maximum = double_output(lgdal.GDALGetRasterMaximum, [c_void_p])
+
+### Reprojection routine ###
+reproject_image = void_output(lgdal.GDALReprojectImage, [c_void_p, c_char_p, c_void_p, c_char_p, 
+                                                         c_int, c_double, c_double,
+                                                         c_void_p, c_void_p, c_void_p])

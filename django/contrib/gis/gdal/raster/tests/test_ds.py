@@ -118,3 +118,61 @@ class RasterGDALRasterTest(unittest.TestCase):
         result = self.ds.wkb
         ds = GDALRaster(str(result))
         self.assertEqual(set(self.ds[0].data), set(ds[0].data))
+
+    def test_get_spelled_out_geotransform(self):
+        "Tests if correct values are returned from explicit gt values"
+        ds = GDALRaster({'sizex': 1, 'sizey': 2, 'nr_of_bands': 1, 'datatype': 1})
+
+        self.assertEqual(None, ds.originx)
+        self.assertEqual(None, ds.scalex)
+        self.assertEqual(None, ds.skewx)
+        self.assertEqual(None, ds.originy)
+        self.assertEqual(None, ds.skewy)
+        self.assertEqual(None, ds.scaley)
+
+        ds.geotransform = [1, 2, 3, 4, 5, 6]
+
+        self.assertEqual(1, ds.originx)
+        self.assertEqual(2, ds.scalex)
+        self.assertEqual(3, ds.skewx)
+        self.assertEqual(4, ds.originy)
+        self.assertEqual(5, ds.skewy)
+        self.assertEqual(6, ds.scaley)
+
+    def test_set_spelled_out_geotransform(self):
+        "Tests if correct values are returned from explicit gt values"
+        ds = GDALRaster({'sizex': 1, 'sizey': 2, 'nr_of_bands': 1, 'datatype': 1})
+
+        self.assertRaises(ValueError, ds.originx, 1)
+        self.assertRaises(ValueError, ds.originy, 1)
+        self.assertRaises(ValueError, ds.scalex, 1)
+        self.assertRaises(ValueError, ds.scaley, 1)
+        self.assertRaises(ValueError, ds.skewx, 1)
+        self.assertRaises(ValueError, ds.skewy, 1)
+
+        ds.geotransform = [1, 2, 3, 4, 5, 6]
+
+        ds.originx = 6
+        ds.scalex = 5
+        ds.skewx = 4
+        ds.originy = 3
+        ds.skewy = 2
+        ds.scaley = 1
+
+        self.assertEqual(6, ds.originx)
+        self.assertEqual(5, ds.scalex)
+        self.assertEqual(4, ds.skewx)
+        self.assertEqual(3, ds.originy)
+        self.assertEqual(2, ds.skewy)
+        self.assertEqual(1, ds.scaley)
+
+    def test_copy_ptr(self):
+        "Tests making a deep copy of the underling gdal dataset."
+        ds = GDALRaster({'sizex': 1, 'sizey': 2, 'nr_of_bands': 1, 'datatype': 1})
+        ds.srid = 3086
+
+        ds_copy = GDALRaster(ds.copy_ptr('x'))
+        self.assertEqual(ds_copy.sizex, ds.sizex)
+        self.assertEqual(ds_copy.sizey, ds.sizey)
+        self.assertEqual(ds_copy.band_count, ds.band_count)
+        self.assertEqual(ds_copy.srid, ds.srid)

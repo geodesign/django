@@ -1,5 +1,5 @@
 import os
-from ctypes import byref, c_double, addressof
+from ctypes import byref, addressof, POINTER, c_double, c_void_p, c_char_p
 
 from django.utils import six
 from django.contrib.gis.geometry.regex import hex_regex
@@ -39,13 +39,13 @@ class GDALRaster(GDALBase):
                                     '"{0}".'.format(ds_input))
 
         # If string is not a file, try to interpret it as postgis raster
-        elif isinstance(ds_input, six.string_types) and hex_regex.match(ds_input):
+        elif isinstance(ds_input, six.string_types):# and hex_regex.match(ds_input):
             try:
                 # Parse data
                 header, bands = utils.parse_wkb(ds_input)
 
                 # Instantiate in-memory raster
-                self.ptr = utils.mem_ptr_from_dict(header)
+                self.ptr = utils.ptr_from_dict(header)
 
                 # Set projection
                 self.srid = header['srid']
@@ -71,7 +71,7 @@ class GDALRaster(GDALBase):
 
         # If input is dict, create empty in-memory raster.
         elif isinstance(ds_input, dict):
-            self.ptr = utils.mem_ptr_from_dict(ds_input)
+            self.ptr = utils.ptr_from_dict(ds_input)
         # If input is a pointer, use it directly
         elif isinstance(ds_input, self.ptr_type):
             self.ptr = ds_input
@@ -141,6 +141,54 @@ class GDALRaster(GDALBase):
             self._driver = Driver(ds_driver)
         return self._driver
 
+    def copy_ptr(self, destination=None):
+        "Retruns a deep-copy of this raster's gdal dataset pointer."
+        # Auto-generate a copy name if not provided
+        if not destination:
+            destination = self.name + '_copy.' + self.driver.name.lower()
+
+        # Copy datasource
+        return capi.copy_ds(self.driver.ptr, destination, self.ptr, False,
+                           POINTER(c_char_p)(), c_void_p(), c_void_p())
+
+    def warp(self, data):
+        "Reproject and crop raster."
+        destination_geotransform = []
+        dst = GDALRaster({'driver': data.get('driver', self.driver.name),
+                          'sizex': data.get('sizex', 255), 
+                          'sizey': data.get('sizey', 255),
+                          'nr_of_bands': self.band_count, 
+                          'datatype': self[0].datatype,
+                          'name': self.ds.name + '_copy'})
+        
+        dst.srid = data.get('srid', 3857)
+
+
+
+        capi.reproject_image(self.ptr, source.srs.wkt, dst.ptr,
+                             dst.srs.wkt, 0, 0.0, 0.0, c_void_p(),
+                             c_void_p(), c_void_p())
+
+        dst = GDALRaster(self.ds.copy_ptr(), write=True)
+        dst = GDALRaster({'sizex': 255, 'sizey': 255, 'nr_of_bands': 1, 'datatype': 1, 'driver': 'tif', 'name': self.ds.name + '_copy.tif'})
+        dst.srid = 3857
+
+        gt = self.ds.geotransform
+        print gt
+
+
+        # pt = 'POINT ({0} {1})'.format(repr(self.ds.originx), repr(self.ds.originy))
+        pt = 'POINT (511700.4680706557 435103.3771231986)'
+        orig = OGRGeometry(pt, self.ds.srid)
+        orig.transform(dst.srid)
+        gt[0] = orig.x
+        gt[3] = orig.y
+        gt = [-9224247.324296974, 100.0, 0.0, 3238525.0136368074, 0.0, -100.0]
+        dst.geotransform = gt
+        GDALWarp(self.ds, dst)
+        capi.reproject_image(source.ptr, source.srs.wkt, destination.ptr, destination.srs.wkt, 0, 0.0, 0.0, c_void_p(), c_void_p(), c_void_p())
+
+
     #### Basic raster Properties ####
 
     @property
@@ -168,26 +216,36 @@ class GDALRaster(GDALBase):
         "Returns the number of bands in the raster."
         return capi.get_ds_raster_count(self.ptr)
 
-    #### SpatialReference-related Properties ####
+    _geotransform = None
 
     # Geotransform property (location and scale of raster)
     def _get_geotransform(self):
         "Returns the geotransform of the data source."
-        # Create empty ctypes double array for data
-        gtf = (c_double*6)()
 
-        # Write data to array
-        capi.get_ds_geotransform(self.ptr, byref(gtf))
+        if not self._geotransform:
+            # Create empty ctypes double array for data
+            gtf = (c_double*6)()
 
-        # Return data as list
-        return list(gtf)
+            # Write data to array
+            try:
+                capi.get_ds_geotransform(self.ptr, byref(gtf))
+            except:
+                return None
+
+            # Convert data to list
+            self._geotransform = list(gtf)
+        
+        return self._geotransform
 
     def _set_geotransform(self, gtf):
-        "Sets the geotransform for the data source"
+        "Sets the geotransform for the data source."
+        # Check input
         if len(gtf) != 6 or\
            any([not isinstance(x, (int, float)) for x in gtf]):
             raise ValueError(
-                'GeoTransform must be a list or tuple of 6 numeric values')
+                'GeoTransform must be a list or tuple of 6 numeric values.')
+        # Reset cache
+        self._geotransform = None
 
         # Prepare ctypes double array with input data for writing
         gtf = (c_double*6)(gtf[0], gtf[1],
@@ -198,6 +256,110 @@ class GDALRaster(GDALBase):
         capi.set_ds_geotransform(self.ptr, byref(gtf))
 
     geotransform = property(_get_geotransform, _set_geotransform)
+
+    def _get_originx(self):
+        "Returns x coordinate of origin (upper-left corner)."
+        if not self.geotransform:
+            return None
+        return self.geotransform[0]
+
+    def _set_originx(self, data):
+        "Sets x coordinate of origin (upper-left corner)."
+        if not self.geotransform:
+            raise ValueError('Set entire geotransform before '\
+                             'setting individual elements.')
+        gtf = self.geotransform
+        gtf[0] = data
+        self.geotransform = gtf
+
+    originx = property(_get_originx, _set_originx)
+        
+    def _get_originy(self):
+        "Returns y coordinate of origin (upper-left corner)."
+        if not self.geotransform:
+            return None
+        return self.geotransform[3]
+
+    def _set_originy(self, data):
+        "Sets y coordinate of origin (upper-left corner)."
+        if not self.geotransform:
+            raise ValueError('Set entire geotransform before '\
+                             'setting individual elements.')
+        gtf = self.geotransform
+        gtf[3] = data
+        self.geotransform = gtf
+
+    originy = property(_get_originy, _set_originy)
+
+    def _get_scalex(self):
+        "Returns the scale of pixels in x direction."
+        if not self.geotransform:
+            return None
+        return self.geotransform[1]
+
+    def _set_scalex(self, data):
+        "Sets the scale of pixels in x direction."
+        if not self.geotransform:
+            raise ValueError('Set entire geotransform before '\
+                             'setting individual elements.')
+        gtf = self.geotransform
+        gtf[1] = data
+        self.geotransform = gtf
+
+    scalex = property(_get_scalex, _set_scalex)
+
+    def _get_scaley(self):
+        "Returns the scale of pixels in y direction."
+        if not self.geotransform:
+            return None
+        return self.geotransform[5]
+
+    def _set_scaley(self, data):
+        "Sets the scale of pixels in y direction."
+        if not self.geotransform:
+            raise ValueError('Set entire geotransform before '\
+                             'setting individual elements.')
+        gtf = self.geotransform
+        gtf[5] = data
+        self.geotransform = gtf
+
+    scaley = property(_get_scaley, _set_scaley)
+
+    def _get_skewx(self):
+        "Returns skew of pixels in x direction."
+        if not self.geotransform:
+            return None
+        return self.geotransform[2]
+
+    def _set_skewx(self, data):
+        "Sets skew of pixels in x direction."
+        if not self.geotransform:
+            raise ValueError('Set entire geotransform before '\
+                             'setting individual elements.')
+        gtf = self.geotransform
+        gtf[2] = data
+        self.geotransform = gtf
+
+    skewx = property(_get_skewx, _set_skewx)
+
+    def _get_skewy(self):
+        "Returns skew of pixels in y direction."
+        if not self.geotransform:
+            return None
+        return self.geotransform[4]
+
+    def _set_skewy(self, data):
+        "Sets skew of pixels in y direction."
+        if not self.geotransform:
+            raise ValueError('Set entire geotransform before '\
+                             'setting individual elements.')
+        gtf = self.geotransform
+        gtf[4] = data
+        self.geotransform = gtf
+
+    skewy = property(_get_skewy, _set_skewy)
+
+    #### SpatialReference-related Properties ####
 
     # The projection reference property
     # This property is what defines the raster projection and is used by gdal.
@@ -259,7 +421,7 @@ class GDALRaster(GDALBase):
 
     #### Raster IO Section ####
 
-    # PostGIS property
+    # PostGIS WKB property
     @property
     def wkb(self):
         """Retruns the raster as PostGIS WKB."""
@@ -285,7 +447,7 @@ class GDALRaster(GDALBase):
             # plus 64 (one bit) as a flag for existing nodata values.
             #
             # I.e. if the byte value is 71, the datatype is 71-64 = 7 (32BSI)
-            # and there a nodata value is set.
+            # and a nodata value exists.
             structure = 'B'
 
             # Get band pixel type structure string

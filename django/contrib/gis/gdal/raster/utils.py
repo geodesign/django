@@ -259,9 +259,10 @@ def chunk(data, index):
     """Splits string data into two halfs at the input index"""
     return data[:index], data[index:]
 
-def mem_ptr_from_dict(header):
+def ptr_from_dict(header, driver='MEM'):
     """
-    Returns pointer to in-memory raster created from input header.
+    Returns pointer to a raster created from input header and the
+    specified driver.
     The reqiored keys are sizex, sizey, nr_of_bands and datatype.
     Where the datatype is a gdal pixeltype as string or integer.
     """
@@ -271,11 +272,11 @@ def mem_ptr_from_dict(header):
     if isinstance(pixeltype, str):
         pixeltype = GDAL_PIXEL_TYPES_INV[pixeltype]
 
-    # Create in-memory driver
-    driver = Driver('MEM')
+    # Create driver (use in-memory by default)
+    driver = Driver(header.get('driver', 'MEM'))
 
     # Create raster from driver with input characteristics
-    return capi.create_ds(driver.ptr, force_bytes(''),
+    return capi.create_ds(driver.ptr, force_bytes(header.get('name', '')),
                           header['sizex'], header['sizey'],
                           header['nr_of_bands'], pixeltype, None)
 
