@@ -40,7 +40,9 @@ class GDALRaster(GDALBase):
                                     '"{0}".'.format(ds_input))
 
         # If string is not a file, try to interpret it as postgis raster
-        elif isinstance(ds_input, six.string_types):# and hex_regex.match(ds_input):
+        elif isinstance(ds_input, six.string_types) and\
+             hex_regex.match(ds_input):
+
             try:
                 # Parse data
                 header, bands = utils.parse_wkb(ds_input)
@@ -150,7 +152,7 @@ class GDALRaster(GDALBase):
 
         # Copy datasource
         return capi.copy_ds(self.driver.ptr, destination, self.ptr, False,
-                           POINTER(c_char_p)(), c_void_p(), c_void_p())
+                            POINTER(c_char_p)(), c_void_p(), c_void_p())
 
     #### Basic Raster Properties ####
 
@@ -554,8 +556,8 @@ class GDALRaster(GDALBase):
     def _set_zoomdown(self, value):
         """
         Sets the zoomdown value. This controls if the next-above or next-below
-        tile layer should be used as the highest zoom level. In relation to that,
-        see also the get_max_zoom_level method.
+        tile layer should be used as the highest zoom level. Also consult the
+        `get_max_zoom_level` method.
         """
         self._zoomdown = value
 
