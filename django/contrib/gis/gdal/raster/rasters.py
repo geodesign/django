@@ -622,7 +622,7 @@ class GDALRaster(GDALBase):
             int((self._tile_shift - bbox[1])/tilesize)]
 
     def get_tile_bounds(self, x, y, z):
-        "Calculates bounding box from Tile Map Service XYZ indices."
+        "Calculates bounding box of a x-y-z tile."
 
         # Calculate size of tiles in meters
         tilesize = self._world_size / 2**z
@@ -641,7 +641,7 @@ class GDALRaster(GDALBase):
         return self._world_size / 2.0**zoom / self._tile_size
 
     def get_tile(self, x, y, z):
-        "Extracts a xyz tile from this raster."
+        "Extracts a tile from this raster and returns it as a GDALRaster."
         if not self.srid == self._tile_srid:
             raise ValueError('This method can only be used for rasters '\
                              'with srid {0}'.format(self._tile_srid))
