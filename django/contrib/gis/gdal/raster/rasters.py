@@ -172,13 +172,17 @@ class GDALRaster(GDALBase):
         dst = src.warp({srid: 4326})
         dst = None
         """
+        # Prepare driver and raster name
+        drivername = data.get('driver', self.driver.name)
+        rastername = data.get('name', self.name + '_copy.' + drivername)
+
         # Setup destination raster with input or default parameters
-        dst = GDALRaster({'driver': data.get('driver', self.driver.name),
+        dst = GDALRaster({'driver': data.get('driver', drivername),
                           'sizex': data.get('sizex', self.sizex), 
                           'sizey': data.get('sizey', self.sizey),
                           'nr_of_bands': self.band_count, 
                           'datatype': self[0].datatype,
-                          'name': data.get('name', self.name + '_copy.' + data.get('driver', self.driver.name))})
+                          'name': rastername})
         
         dst.srid = data.get('srid', self.srid)
 
@@ -626,13 +630,8 @@ class GDALRaster(GDALBase):
         bounds = self.get_tile_bounds(x, y, z)
         name = self.name + '-{0}-{1}-{2}.{3}'.format(x, y, z, self.driver.name)
 
-        tile = self.warp({
-            'name': name,
-            'scalex': scale,
-            'scaley': -scale,
-            'originx': bounds[0],
-            'originy': bounds[3],
-            'sizex': self._tile_size,
-            'sizey': self._tile_size})
+        tile = self.warp({'name': name, 'scalex': scale, 'scaley': -scale,
+                          'originx': bounds[0], 'originy': bounds[3],
+                          'sizex': self._tile_size, 'sizey': self._tile_size})
 
         return tile
