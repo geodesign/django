@@ -26,6 +26,11 @@ class RasterGDALRasterTest(unittest.TestCase):
         self.ds_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                                     'data/raster.tif')
         self.ds = GDALRaster(self.ds_path)
+        self.ds.srid = 3086
+
+        # create warped version
+        self.warped = self.ds.warp({'srid': 3857, 'driver': 'MEM',
+                                    'name': 'warpedfortesting'})
 
     def test_valid_datatypes(self):
         "Testing creation of GDAL Data Source in memory."
@@ -89,7 +94,7 @@ class RasterGDALRasterTest(unittest.TestCase):
     def test_ds_projection_and_srs(self):
         "Testing spatial reference and srs related methods"
         # Test for tif file
-        ref = 'PROJCS["Albers_Conical_Equal_Area_Florida_Geographic_Data_Library",GEOGCS["GCS_North_American_1983_HARN",DATUM["NAD83_High_Accuracy_Reference_Network",SPHEROID["GRS 1980",6378137,298.2572221010002,AUTHORITY["EPSG","7019"]],AUTHORITY["EPSG","6152"]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433]],PROJECTION["Albers_Conic_Equal_Area"],PARAMETER["standard_parallel_1",24],PARAMETER["standard_parallel_2",31.5],PARAMETER["latitude_of_center",24],PARAMETER["longitude_of_center",-84],PARAMETER["false_easting",400000],PARAMETER["false_northing",0],UNIT["metre",1,AUTHORITY["EPSG","9001"]]]'
+        ref = 'PROJCS["NAD83 / Florida GDL Albers",GEOGCS["NAD83",DATUM["North_American_Datum_1983",SPHEROID["GRS 1980",6378137,298.257222101,AUTHORITY["EPSG","7019"]],TOWGS84[0,0,0,0,0,0,0],AUTHORITY["EPSG","6269"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AUTHORITY["EPSG","4269"]],PROJECTION["Albers_Conic_Equal_Area"],PARAMETER["standard_parallel_1",24],PARAMETER["standard_parallel_2",31.5],PARAMETER["latitude_of_center",24],PARAMETER["longitude_of_center",-84],PARAMETER["false_easting",400000],PARAMETER["false_northing",0],UNIT["metre",1,AUTHORITY["EPSG","9001"]],AXIS["X",EAST],AXIS["Y",NORTH],AUTHORITY["EPSG","3086"]]'
         self.assertEqual(ref, self.ds.srs.wkt)
 
         # Test for in-memory creation and setting through srid
@@ -177,15 +182,47 @@ class RasterGDALRasterTest(unittest.TestCase):
         self.assertEqual(ds_copy.band_count, ds.band_count)
         self.assertEqual(ds_copy.srid, ds.srid)
 
+    def test_extent(self):
+        "Tests extent property of raster."
+        ds = GDALRaster({'sizex': 2, 'sizey': 2, 
+                         'nr_of_bands': 1, 'datatype': 1})
+        ds.geotransform = [1] * 6
+        ds.scalex = 1
+        ds.scaley = -1
+        self.assertEqual((1, -1, 3, 1), ds.extent)
+
     def test_warp(self):
         "Tests warping the dataset."
-        # Set correct srid for raster
-        self.ds.srid = 3086
-
-        # Create in-memory warp of raster
-        warped = self.ds.warp({'srid': 3857, 'driver': 'MEM'})
-
         # Assert basic properties are correct
-        self.assertEqual(warped.sizex, self.ds.sizex)
-        self.assertEqual(warped.sizey, self.ds.sizey)
-        self.assertEqual(warped.srid, 3857)
+        self.assertEqual(self.warped.sizex, self.ds.sizex)
+        self.assertEqual(self.warped.sizey, self.ds.sizey)
+        self.assertEqual(3857, self.warped.srid)
+
+    def test_max_zoom_level(self):
+        "Tests the maximum zoom level calculation for this raster."
+        zoom = self.warped.get_max_zoom_level()
+        self.assertEqual(11, zoom)
+
+    def test_tile_index_range(self):
+        "Test the computation of the xyz tile range for a given zoom level."
+        indexrange = self.warped.get_tile_index_range(11)
+        self.assertEqual([552, 858, 553, 859], indexrange)
+
+    def test_tile_bounds(self):
+        "Tests the calculation of the tile bounds for a xyz tile."
+        bounds = self.warped.get_tile_bounds(552, 858, 11)
+        self.assertEqual([-9236039.001754418, 3228700.074765846,
+                          -9216471.122513412, 3248267.9540068507], bounds)
+
+    def test_tile_scale(self):
+        "Test the computation of the pixelsize scale (in m) of a xyz tile."
+        scale = self.warped.get_tile_scale(11)
+        self.assertEqual(76.43702828517625, scale)
+
+    def test_tile_creation(self):
+        "Tests the extraction of a xyz tile from a given dataset."
+        tile = self.warped.get_tile(552, 858, 11)
+        self.assertEqual(3857, tile.srid)
+        self.assertEqual(76.43702828517625, tile.scalex)
+        self.assertEqual(-9236039.001754418, tile.originx)
+        self.assertEqual('warpedfortesting-552-858-11.MEM', tile.name)

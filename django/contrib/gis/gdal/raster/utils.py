@@ -92,6 +92,18 @@ GDAL_TO_CTYPES = {
     11: None
 }
 
+GDAL_RESAMPLE_ALGORITHMS = {
+    0: 'NearestNeighbour',
+    1: 'Bilinear',
+    2: 'Cubic',
+    3: 'CubicSpline',
+    4: 'Lanczos', 
+    5: 'Average',
+    6: 'Mode'
+}
+
+GDAL_RESAMPLE_ALGORITHMS_INV = {v: k for k, v in GDAL_RESAMPLE_ALGORITHMS.items()}
+
 """
 POSTGIS
 

@@ -9,6 +9,7 @@ from django.contrib.gis.gdal.prototypes.generation import const_string_output,\
 
 # For more detail about c function names and definitions see
 # http://gdal.org/gdal_8h.html
+# http://gdal.org/gdalwarper_8h.html
 
 ### Raster Driver Routines ###
 register_all = void_output(lgdal.GDALAllRegister, [])

@@ -1,4 +1,5 @@
 import os
+from math import pi
 from ctypes import byref, addressof, POINTER, c_double, c_void_p, c_char_p
 
 from django.utils import six
@@ -163,6 +164,13 @@ class GDALRaster(GDALBase):
         original ones. This includes the driver, a copy of the raster is
         created with the original name plus _copy. + DriverName. Alternatively,
         specify what driver to use.
+
+        Note that the new dataset is not closed, so not all data is written to
+        disk at the end of the warp routine. To make sure all data is written
+        to disk, close dataset by setting it to None, for instance:
+
+        dst = src.warp({srid: 4326})
+        dst = None
         """
         # Setup destination raster with input or default parameters
         dst = GDALRaster({'driver': data.get('driver', self.driver.name),
@@ -170,7 +178,7 @@ class GDALRaster(GDALBase):
                           'sizey': data.get('sizey', self.sizey),
                           'nr_of_bands': self.band_count, 
                           'datatype': self[0].datatype,
-                          'name': self.name + '_copy.' + self.driver.name})
+                          'name': data.get('name', self.name + '_copy.' + data.get('driver', self.driver.name))})
         
         dst.srid = data.get('srid', self.srid)
 
@@ -184,9 +192,12 @@ class GDALRaster(GDALBase):
             newx, newy = utils.transform_coords(self.originx, self.originy,
                                                 self.srid, dst.srid)
             if originx is None:
-                dst.originx = newx
+                originx = newx
             if originy is None:
-                dst.originy = newy
+                originy = newy
+
+        dst.originx = originx
+        dst.originy = originy
 
         # Calculate new scales and update destination geotransform
         scalex = data.get('scalex', None)
@@ -195,12 +206,21 @@ class GDALRaster(GDALBase):
             # Calculate scale of raster in new coordinate system
             newx, newy = utils.calculate_scale(self, dst.srid)
             if scalex is None:
-                dst.scalex = newx
+                scalex = newx
             if scaley is None:
-                dst.scaley = newy
+                scaley = newy
 
+        dst.scalex = scalex
+        dst.scaley = scaley
+
+        # Select resampling algorithm
+        algo = data.get('algorithm', 0)
+        if isinstance(algo, str):
+            algo = utils.GDAL_RESAMPLE_ALGORITHMS_INV[algo]
+
+        # Reproject image
         capi.reproject_image(self.ptr, self.srs.wkt, dst.ptr,
-                             dst.srs.wkt, 0, 0.0, 0.0, c_void_p(),
+                             dst.srs.wkt, algo, 0.0, 0.0, c_void_p(),
                              c_void_p(), c_void_p())
 
         return dst
@@ -375,6 +395,22 @@ class GDALRaster(GDALBase):
 
     skewy = property(_get_skewy, _set_skewy)
 
+    @property
+    def extent(self):
+        "Returns extent as tuple (xmin, ymin, xmax, ymax)"
+        # Cacluate boundary values based on scale and size
+        xval = self.originx + self.scalex * self.sizex
+        yval = self.originy + self.scaley * self.sizey
+
+        # Calculate min and max values
+        xmin = min(xval, self.originx)
+        xmax = max(xval, self.originx)
+        ymin = min(yval, self.originy)
+        ymax = max(yval, self.originy)
+
+        # Return extent
+        return xmin, ymin, xmax, ymax
+
     #### SpatialReference-related Properties ####
 
     # The projection reference property
@@ -499,3 +535,104 @@ class GDALRaster(GDALBase):
 
         # Return PostGIS Raster String
         return result
+
+
+    #### Tiling Section ####
+    # Set tile constant values
+    _world_size = 2 * pi * 6378137
+    _tile_shift = _world_size / 2.0
+    _tile_size = 256
+    _tile_srid = 3857
+    _zoomdown = True
+
+    def get_max_zoom_level(self):
+        """
+        Returns the maximum zoomlevel for this raster's scale.
+
+        The maximum zoom level is defined as the next underlying zoomlevel to
+        the raster layer's true level. So if the raster layer scale lies
+        between zoom levels 2 and 3, the max zoom level is assumed to be 3.
+        """
+        if not self.srid == self._tile_srid:
+            raise ValueError('This method can only be used for rasters '\
+                             'with srid {0}'.format(self._tile_srid))
+        # Calculate all pixelsizes for the TMS zoom levels
+        tms_pixelsizes = [self._world_size / (2.0**i * self._tile_size) for\
+                          i in range(1, 19)]
+
+        # If the pixelsize is smaller than all tms sizes, default to max level
+        zoomlevel = 18
+
+        # Find zoomlevel (next-upper) for the input pixel size
+        for i in range(18):
+            if self.scalex - tms_pixelsizes[i] >= 0:
+                zoomlevel = i
+                break
+
+        # If nextdown flag is true, adjust level
+        if self._zoomdown:
+            zoomlevel += 1
+
+        return zoomlevel
+
+    def get_tile_index_range(self, zoom):
+        """
+        Calculates index range for a given bounding box and zoomlevel.
+        It returns maximum and minimum x and y tile indices that overlap
+        with the input bbox at zoomlevel z.
+        """
+        if not self.srid == self._tile_srid:
+            raise ValueError('This method can only be used for rasters '\
+                             'with srid {0}'.format(self._tile_srid))
+        # Calculate tile size for given zoom level
+        tilesize = self._world_size / 2**zoom
+
+        bbox = self.extent
+
+        # Calculate overlaying tile indices
+        return [
+            int((bbox[0] + self._tile_shift)/tilesize),
+            int((self._tile_shift - bbox[3])/tilesize),
+            int((bbox[2] + self._tile_shift)/tilesize),
+            int((self._tile_shift - bbox[1])/tilesize)
+        ]
+
+    def get_tile_bounds(self, x, y, z):
+        """
+        Calculates bounding box from Tile Map Service XYZ indices.
+        """
+        tilesize = self._world_size / 2**z
+
+        xmin = x * tilesize - self._tile_shift
+        xmax = (x+1) * tilesize - self._tile_shift
+        ymin = self._tile_shift - (y+1) * tilesize
+        ymax = self._tile_shift - y * tilesize
+
+        return [xmin, ymin, xmax, ymax]
+
+    def get_tile_scale(self, zoom):
+        """Calculates pixel size scale for given zoom level."""
+
+        zscale = self._world_size / 2.0**zoom / self._tile_size
+        return zscale
+
+    def get_tile(self, x, y, z):
+        "Extracts a xyz tile from this raster."
+        if not self.srid == self._tile_srid:
+            raise ValueError('This method can only be used for rasters '\
+                             'with srid {0}'.format(self._tile_srid))
+
+        scale = self.get_tile_scale(z)
+        bounds = self.get_tile_bounds(x, y, z)
+        name = self.name + '-{0}-{1}-{2}.{3}'.format(x, y, z, self.driver.name)
+
+        tile = self.warp({
+            'name': name,
+            'scalex': scale,
+            'scaley': -scale,
+            'originx': bounds[0],
+            'originy': bounds[3],
+            'sizex': self._tile_size,
+            'sizey': self._tile_size})
+
+        return tile
