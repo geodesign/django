@@ -591,6 +591,7 @@ class GDALRaster(GDALBase):
         # Calculate tile size for given zoom level
         tilesize = self._world_size / 2**zoom
 
+        # Get extent for raster to compute tile ranges
         bbox = self.extent
 
         # Calculate overlaying tile indices
@@ -605,20 +606,21 @@ class GDALRaster(GDALBase):
         """
         Calculates bounding box from Tile Map Service XYZ indices.
         """
+        # Calculate size of tiles in meters
         tilesize = self._world_size / 2**z
 
+        # Calculate corner values of bbox
         xmin = x * tilesize - self._tile_shift
         xmax = (x+1) * tilesize - self._tile_shift
         ymin = self._tile_shift - (y+1) * tilesize
         ymax = self._tile_shift - y * tilesize
 
-        return [xmin, ymin, xmax, ymax]
+        # Return bounding box
+        return (xmin, ymin, xmax, ymax)
 
     def get_tile_scale(self, zoom):
         """Calculates pixel size scale for given zoom level."""
-
-        zscale = self._world_size / 2.0**zoom / self._tile_size
-        return zscale
+        return self._world_size / 2.0**zoom / self._tile_size
 
     def get_tile(self, x, y, z):
         "Extracts a xyz tile from this raster."
@@ -626,12 +628,14 @@ class GDALRaster(GDALBase):
             raise ValueError('This method can only be used for rasters '\
                              'with srid {0}'.format(self._tile_srid))
 
+        # Calculate scale and bounds for this tile
         scale = self.get_tile_scale(z)
         bounds = self.get_tile_bounds(x, y, z)
+
+        # Prepare name for tile creation
         name = self.name + '-{0}-{1}-{2}.{3}'.format(x, y, z, self.driver.name)
 
-        tile = self.warp({'name': name, 'scalex': scale, 'scaley': -scale,
+        # Warp this dataset into a xyz tile using the calculated parameters
+        return self.warp({'name': name, 'scalex': scale, 'scaley': -scale,
                           'originx': bounds[0], 'originy': bounds[3],
                           'sizex': self._tile_size, 'sizey': self._tile_size})
-
-        return tile

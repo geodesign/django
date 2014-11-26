@@ -211,8 +211,8 @@ class RasterGDALRasterTest(unittest.TestCase):
     def test_tile_bounds(self):
         "Tests the calculation of the tile bounds for a xyz tile."
         bounds = self.warped.get_tile_bounds(552, 858, 11)
-        self.assertEqual([-9236039.001754418, 3228700.074765846,
-                          -9216471.122513412, 3248267.9540068507], bounds)
+        self.assertEqual((-9236039.001754418, 3228700.074765846,
+                          -9216471.122513412, 3248267.9540068507), bounds)
 
     def test_tile_scale(self):
         "Test the computation of the pixelsize scale (in m) of a xyz tile."
