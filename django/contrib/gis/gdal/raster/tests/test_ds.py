@@ -226,3 +226,9 @@ class RasterGDALRasterTest(unittest.TestCase):
         self.assertEqual(76.43702828517625, tile.scalex)
         self.assertEqual(-9236039.001754418, tile.originx)
         self.assertEqual('warpedfortesting-552-858-11.MEM', tile.name)
+
+    def test_zoomdown(self):
+        "Tests the setting for the maximum xzy tile zoom level."
+        self.assertEqual(11, self.warped.get_max_zoom_level())
+        self.warped.zoomdown = False
+        self.assertEqual(10, self.warped.get_max_zoom_level())

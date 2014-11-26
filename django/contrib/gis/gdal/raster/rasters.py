@@ -152,84 +152,7 @@ class GDALRaster(GDALBase):
         return capi.copy_ds(self.driver.ptr, destination, self.ptr, False,
                            POINTER(c_char_p)(), c_void_p(), c_void_p())
 
-    def warp(self, data={}):
-        """
-        Returns a warped GDALRaster with the given input characteristics.
-
-        The input parameters that can be used are all geotransform factors and
-        the srid. For instance, ds.warp({'srid': 4326}) returns the raster in
-        the coordinate system WGS84.
-
-        By default, the warp functions keeps all parameters equal to the
-        original ones. This includes the driver, a copy of the raster is
-        created with the original name plus _copy. + DriverName. Alternatively,
-        specify what driver to use.
-
-        Note that the new dataset is not closed, so not all data is written to
-        disk at the end of the warp routine. To make sure all data is written
-        to disk, close dataset by setting it to None, for instance:
-
-        dst = src.warp({srid: 4326})
-        dst = None
-        """
-        # Prepare driver and raster name
-        drivername = data.get('driver', self.driver.name)
-        rastername = data.get('name', self.name + '_copy.' + drivername)
-
-        # Setup destination raster with input or default parameters
-        dst = GDALRaster({'driver': data.get('driver', drivername),
-                          'sizex': data.get('sizex', self.sizex), 
-                          'sizey': data.get('sizey', self.sizey),
-                          'nr_of_bands': self.band_count, 
-                          'datatype': self[0].datatype,
-                          'name': rastername})
-        
-        dst.srid = data.get('srid', self.srid)
-
-        # Set geotransform from original raster and change it subsequently
-        dst.geotransform = self.geotransform
-
-        # Transform origin coordinates and update destination geotransfrom
-        originx = data.get('originx', None)
-        originy = data.get('originy', None)
-        if None in (originx, originy):
-            newx, newy = utils.transform_coords(self.originx, self.originy,
-                                                self.srid, dst.srid)
-            if originx is None:
-                originx = newx
-            if originy is None:
-                originy = newy
-
-        dst.originx = originx
-        dst.originy = originy
-
-        # Calculate new scales and update destination geotransform
-        scalex = data.get('scalex', None)
-        scaley = data.get('scaley', None)
-        if None in (scalex, scaley):
-            # Calculate scale of raster in new coordinate system
-            newx, newy = utils.calculate_scale(self, dst.srid)
-            if scalex is None:
-                scalex = newx
-            if scaley is None:
-                scaley = newy
-
-        dst.scalex = scalex
-        dst.scaley = scaley
-
-        # Select resampling algorithm
-        algo = data.get('algorithm', 0)
-        if isinstance(algo, str):
-            algo = utils.GDAL_RESAMPLE_ALGORITHMS_INV[algo]
-
-        # Reproject image
-        capi.reproject_image(self.ptr, self.srs.wkt, dst.ptr,
-                             dst.srs.wkt, algo, 0.0, 0.0, c_void_p(),
-                             c_void_p(), c_void_p())
-
-        return dst
-
-    #### Basic raster Properties ####
+    #### Basic Raster Properties ####
 
     @property
     def name(self):
@@ -475,12 +398,91 @@ class GDALRaster(GDALBase):
 
     srid = property(_get_srid, _set_srid)
 
+    #### Warping - reprojection & resampling ####
+
+    def warp(self, data={}):
+        """
+        Returns a warped GDALRaster with the given input characteristics.
+
+        The input parameters that can be used are all geotransform factors and
+        the srid. For instance, ds.warp({'srid': 4326}) returns the raster in
+        the coordinate system WGS84.
+
+        By default, the warp functions keeps all parameters equal to the
+        original ones. This includes the driver, a copy of the raster is
+        created with the original name plus _copy. + DriverName. Alternatively,
+        specify what driver to use.
+
+        Note that the new dataset is not closed, so not all data is written to
+        disk at the end of the warp routine. To make sure all data is written
+        to disk, close dataset by setting it to None, for instance:
+
+        dst = src.warp({srid: 4326})
+        dst = None
+        """
+        # Prepare driver and raster name
+        drivername = data.get('driver', self.driver.name)
+        rastername = data.get('name', self.name + '_copy.' + drivername)
+
+        # Setup destination raster with input or default parameters
+        dst = GDALRaster({'driver': data.get('driver', drivername),
+                          'sizex': data.get('sizex', self.sizex), 
+                          'sizey': data.get('sizey', self.sizey),
+                          'nr_of_bands': self.band_count, 
+                          'datatype': self[0].datatype,
+                          'name': rastername})
+        
+        dst.srid = data.get('srid', self.srid)
+
+        # Set geotransform from original raster and change it subsequently
+        dst.geotransform = self.geotransform
+
+        # Transform origin coordinates and update destination geotransfrom
+        originx = data.get('originx', None)
+        originy = data.get('originy', None)
+        if None in (originx, originy):
+            newx, newy = utils.transform_coords(self.originx, self.originy,
+                                                self.srid, dst.srid)
+            if originx is None:
+                originx = newx
+            if originy is None:
+                originy = newy
+
+        dst.originx = originx
+        dst.originy = originy
+
+        # Calculate new scales and update destination geotransform
+        scalex = data.get('scalex', None)
+        scaley = data.get('scaley', None)
+        if None in (scalex, scaley):
+            # Calculate scale of raster in new coordinate system
+            newx, newy = utils.calculate_scale(self, dst.srid)
+            if scalex is None:
+                scalex = newx
+            if scaley is None:
+                scaley = newy
+
+        dst.scalex = scalex
+        dst.scaley = scaley
+
+        # Select resampling algorithm
+        algo = data.get('algorithm', 0)
+        if isinstance(algo, str):
+            algo = utils.GDAL_RESAMPLE_ALGORITHMS_INV[algo]
+
+        # Reproject image
+        capi.reproject_image(self.ptr, self.srs.wkt, dst.ptr,
+                             dst.srs.wkt, algo, 0.0, 0.0, c_void_p(),
+                             c_void_p(), c_void_p())
+
+        return dst
+
     #### Raster IO Section ####
 
     # PostGIS WKB property
     @property
     def wkb(self):
-        """Retruns the raster as PostGIS WKB."""
+        "Retruns the raster as PostGIS WKB."
         # Get GDAL geotransform for header data
         gtf = self.geotransform
 
@@ -540,14 +542,27 @@ class GDALRaster(GDALBase):
         # Return PostGIS Raster String
         return result
 
-
     #### Tiling Section ####
-    # Set tile constant values
+
+    # Tile defining constants
     _world_size = 2 * pi * 6378137
     _tile_shift = _world_size / 2.0
     _tile_size = 256
     _tile_srid = 3857
     _zoomdown = True
+
+    def _set_zoomdown(self, value):
+        """
+        Sets the zoomdown value. This controls if the next-above or next-below
+        tile layer should be used as the lowest level.
+        """
+        self._zoomdown = value
+
+    def _get_zoomdown(self):
+        "Returns the zoomdown parameter value."
+        return self._zoomdown
+
+    zoomdown = property(_get_zoomdown, _set_zoomdown)
 
     def get_max_zoom_level(self):
         """
@@ -599,13 +614,11 @@ class GDALRaster(GDALBase):
             int((bbox[0] + self._tile_shift)/tilesize),
             int((self._tile_shift - bbox[3])/tilesize),
             int((bbox[2] + self._tile_shift)/tilesize),
-            int((self._tile_shift - bbox[1])/tilesize)
-        ]
+            int((self._tile_shift - bbox[1])/tilesize)]
 
     def get_tile_bounds(self, x, y, z):
-        """
-        Calculates bounding box from Tile Map Service XYZ indices.
-        """
+        "Calculates bounding box from Tile Map Service XYZ indices."
+
         # Calculate size of tiles in meters
         tilesize = self._world_size / 2**z
 
@@ -619,7 +632,7 @@ class GDALRaster(GDALBase):
         return (xmin, ymin, xmax, ymax)
 
     def get_tile_scale(self, zoom):
-        """Calculates pixel size scale for given zoom level."""
+        "Calculates pixel size scale for given zoom level."
         return self._world_size / 2.0**zoom / self._tile_size
 
     def get_tile(self, x, y, z):
