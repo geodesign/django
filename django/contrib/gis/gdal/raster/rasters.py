@@ -554,7 +554,8 @@ class GDALRaster(GDALBase):
     def _set_zoomdown(self, value):
         """
         Sets the zoomdown value. This controls if the next-above or next-below
-        tile layer should be used as the highest zoom level.
+        tile layer should be used as the highest zoom level. In relation to that,
+        see also the get_max_zoom_level method.
         """
         self._zoomdown = value
 
@@ -568,9 +569,13 @@ class GDALRaster(GDALBase):
         """
         Returns the maximum zoomlevel for this raster's scale.
 
-        The maximum zoom level is defined as the next underlying zoomlevel to
-        the raster layer's true level. So if the raster layer scale lies
-        between zoom levels 2 and 3, the max zoom level is assumed to be 3.
+        By default, the maximum zoom level is the next underlying zoomlevel
+        when compared to the raster layer's actual scale.
+
+        The behaviour is controlled by the zoomdown property. If the zoomdown
+        property is set to True (which is the default), and the original raster
+        scale lies between zoom levels 2 and 3, the max zoom level is 3, if
+        zoomdown is set to False, it is 2.
         """
         if not self.srid == self._tile_srid:
             raise ValueError('This method can only be used for rasters '\
