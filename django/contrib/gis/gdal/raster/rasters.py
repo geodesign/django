@@ -554,7 +554,7 @@ class GDALRaster(GDALBase):
     def _set_zoomdown(self, value):
         """
         Sets the zoomdown value. This controls if the next-above or next-below
-        tile layer should be used as the lowest level.
+        tile layer should be used as the highest zoom level.
         """
         self._zoomdown = value
 
