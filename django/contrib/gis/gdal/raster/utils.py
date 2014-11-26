@@ -5,8 +5,10 @@ Utilities for pixel data type conversions between Python, GDAL and PostGIS
 import struct, binascii
 from ctypes import c_byte, c_uint16, c_int16, c_uint32, c_int32, c_float,\
     c_double
+from math import copysign
 from django.core.exceptions import ValidationError
 from django.utils.encoding import force_bytes
+from django.contrib.gis.gdal import OGRGeometry
 from django.contrib.gis.gdal.raster.driver import Driver
 from django.contrib.gis.gdal.raster.prototypes import ds as capi
 # TODO: Organize the utils better, maybe split into constants and functions
@@ -336,3 +338,55 @@ def parse_wkb(data):
         header['datatype'] = bands[0]['type']
 
     return header, bands
+
+def transform_coords(originx, originy, srid_src, srid_dest):
+    "Transforms input coordinates from source srid to destination srid"
+    # Create ogr point geometry from input
+    point = 'POINT ({0} {1})'.format(repr(originx),
+                                     repr(originy))
+    point = OGRGeometry(point, srid_src)
+
+    # Transform point into new projection
+    point.transform(srid_dest)
+
+    # Return coordinates
+    return point.x, point.y
+
+def calculate_scale(rast, srid_dest, squared_pixel=True):
+    """
+    Returns the scale of the raster in a given coordinate system. The scale is
+    calculated over the size of the raster, assuming the pixel size is kept the
+    same. The squared_pixel flag indicates if the absolute value of the xscale
+    and the yscale should be the same, i.e. to have squared pixels in the new
+    projection.
+    """
+    # Calculate origin point in new coordinates
+    point_a = 'POINT ({0} {1})'.format(repr(rast.originx),
+                                       repr(rast.originy))
+    point_a = OGRGeometry(point_a, rast.srid)
+    point_a.transform(srid_dest)
+
+    # Calculate lower right corner point in new coordinates
+    point_b = 'POINT ({0} {1})'.format(repr(rast.originx + rast.scalex*rast.sizex),
+                                       repr(rast.originy + rast.scaley*rast.sizey))
+    point_b = OGRGeometry(point_b, rast.srid)
+    point_b.transform(srid_dest)
+
+    # Calculate scales
+    scalex = abs(point_a.x - point_b.x)/rast.sizex
+    scaley = abs(point_a.y - point_b.y)/rast.sizey
+
+    # If squared pixel is requested, make scales equal, keeping the larger
+    # values to assure that the new raster overlays the old one if the 
+    # number of pixels is kept the same.
+    if squared_pixel:
+        if abs(scalex) > abs(scaley):
+            scaley = scalex
+        else:
+            scalex = scaley
+
+    # Assure scale signs are the same
+    scaley = copysign(scalex, rast.scalex)
+    scaley = copysign(scaley, rast.scaley)
+
+    return scalex, scaley

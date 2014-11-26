@@ -176,3 +176,8 @@ class RasterGDALRasterTest(unittest.TestCase):
         self.assertEqual(ds_copy.sizey, ds.sizey)
         self.assertEqual(ds_copy.band_count, ds.band_count)
         self.assertEqual(ds_copy.srid, ds.srid)
+
+    def test_warp(self):
+        "Tests warping the dataset."
+        self.ds.srid = 3086
+        self.ds.warp({'srid': 3857})

@@ -151,43 +151,46 @@ class GDALRaster(GDALBase):
         return capi.copy_ds(self.driver.ptr, destination, self.ptr, False,
                            POINTER(c_char_p)(), c_void_p(), c_void_p())
 
-    def warp(self, data):
+    def warp(self, data={}):
         "Reproject and crop raster."
-        destination_geotransform = []
+        # Setup destination raster with input or default parameters
         dst = GDALRaster({'driver': data.get('driver', self.driver.name),
-                          'sizex': data.get('sizex', 255), 
-                          'sizey': data.get('sizey', 255),
+                          'sizex': data.get('sizex', self.sizex), 
+                          'sizey': data.get('sizey', self.sizey),
                           'nr_of_bands': self.band_count, 
                           'datatype': self[0].datatype,
-                          'name': self.ds.name + '_copy'})
+                          'name': self.name + '_copy.tif'})
         
-        dst.srid = data.get('srid', 3857)
+        dst.srid = data.get('srid', self.srid)
 
+        # Set geotransform from original raster and change it subsequently
+        dst.geotransform = self.geotransform
 
+        # Transform origin coordinates and update destination geotransfrom
+        originx = data.get('originx', None)
+        originy = data.get('originy', None)
+        if None in (originx, originy):
+            newx, newy = utils.transform_coords(self.originx, self.originy,
+                                                self.srid, dst.srid)
+            if originx is None:
+                dst.originx = newx
+            if originy is None:
+                dst.originy = newy
 
-        capi.reproject_image(self.ptr, source.srs.wkt, dst.ptr,
+        # Calculate new scales and update destination geotransform
+        scalex = data.get('scalex', None)
+        scaley = data.get('scaley', None)
+        if None in (scalex, scaley):
+            # Calculate scale of raster in new coordinate system
+            newx, newy = utils.calculate_scale(self, dst.srid)
+            if scalex is None:
+                dst.scalex = newx
+            if scaley is None:
+                dst.scaley = newy
+
+        capi.reproject_image(self.ptr, self.srs.wkt, dst.ptr,
                              dst.srs.wkt, 0, 0.0, 0.0, c_void_p(),
                              c_void_p(), c_void_p())
-
-        dst = GDALRaster(self.ds.copy_ptr(), write=True)
-        dst = GDALRaster({'sizex': 255, 'sizey': 255, 'nr_of_bands': 1, 'datatype': 1, 'driver': 'tif', 'name': self.ds.name + '_copy.tif'})
-        dst.srid = 3857
-
-        gt = self.ds.geotransform
-        print gt
-
-
-        # pt = 'POINT ({0} {1})'.format(repr(self.ds.originx), repr(self.ds.originy))
-        pt = 'POINT (511700.4680706557 435103.3771231986)'
-        orig = OGRGeometry(pt, self.ds.srid)
-        orig.transform(dst.srid)
-        gt[0] = orig.x
-        gt[3] = orig.y
-        gt = [-9224247.324296974, 100.0, 0.0, 3238525.0136368074, 0.0, -100.0]
-        dst.geotransform = gt
-        GDALWarp(self.ds, dst)
-        capi.reproject_image(source.ptr, source.srs.wkt, destination.ptr, destination.srs.wkt, 0, 0.0, 0.0, c_void_p(), c_void_p(), c_void_p())
-
 
     #### Basic raster Properties ####
 
