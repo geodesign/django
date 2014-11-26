@@ -179,5 +179,13 @@ class RasterGDALRasterTest(unittest.TestCase):
 
     def test_warp(self):
         "Tests warping the dataset."
+        # Set correct srid for raster
         self.ds.srid = 3086
-        self.ds.warp({'srid': 3857})
+
+        # Create in-memory warp of raster
+        warped = self.ds.warp({'srid': 3857, 'driver': 'MEM'})
+
+        # Assert basic properties are correct
+        self.assertEqual(warped.sizex, self.ds.sizex)
+        self.assertEqual(warped.sizey, self.ds.sizey)
+        self.assertEqual(warped.srid, 3857)

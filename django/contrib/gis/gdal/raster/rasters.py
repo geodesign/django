@@ -152,14 +152,25 @@ class GDALRaster(GDALBase):
                            POINTER(c_char_p)(), c_void_p(), c_void_p())
 
     def warp(self, data={}):
-        "Reproject and crop raster."
+        """
+        Returns a warped GDALRaster with the given input characteristics.
+
+        The input parameters that can be used are all geotransform factors and
+        the srid. For instance, ds.warp({'srid': 4326}) returns the raster in
+        the coordinate system WGS84.
+
+        By default, the warp functions keeps all parameters equal to the
+        original ones. This includes the driver, a copy of the raster is
+        created with the original name plus _copy. + DriverName. Alternatively,
+        specify what driver to use.
+        """
         # Setup destination raster with input or default parameters
         dst = GDALRaster({'driver': data.get('driver', self.driver.name),
                           'sizex': data.get('sizex', self.sizex), 
                           'sizey': data.get('sizey', self.sizey),
                           'nr_of_bands': self.band_count, 
                           'datatype': self[0].datatype,
-                          'name': self.name + '_copy.tif'})
+                          'name': self.name + '_copy.' + self.driver.name})
         
         dst.srid = data.get('srid', self.srid)
 
@@ -191,6 +202,8 @@ class GDALRaster(GDALBase):
         capi.reproject_image(self.ptr, self.srs.wkt, dst.ptr,
                              dst.srs.wkt, 0, 0.0, 0.0, c_void_p(),
                              c_void_p(), c_void_p())
+
+        return dst
 
     #### Basic raster Properties ####
 
