@@ -23,6 +23,12 @@ class TilerTest(unittest.TestCase):
 
         self.tiler = Tiler(self.warped)
 
+    def test_auto_reprojection(self):
+        "Tests if input raster is reprojected when instantiating the tiler."
+        in_mem_copy = self.ds.warp(driver='MEM', name='inmemcopy')
+        tiler = Tiler(in_mem_copy)
+        self.assertEqual(3857, tiler.rast.srid)
+
     def test_max_zoom_level(self):
         "Tests the maximum zoom level calculation for this raster."
         zoom = self.tiler.get_max_zoom_level()
@@ -59,6 +65,23 @@ class TilerTest(unittest.TestCase):
         self.assertEqual(10, self.tiler.get_max_zoom_level())
 
     def test_tile_iterator(self):
-        "Tests iterator over all tiles for this dataset."
+        "Tests iterator over all tiles for a dataset."
+        expected = [
+            (0, 0, 0, 'warpedfortesting-0-0-0.mem'),
+            (0, 0, 1, 'warpedfortesting-0-0-1.mem'),
+            (1, 1, 2, 'warpedfortesting-1-1-2.mem'),
+            (2, 3, 3, 'warpedfortesting-2-3-3.mem'),
+            (4, 6, 4, 'warpedfortesting-4-6-4.mem'),
+            (8, 13, 5, 'warpedfortesting-8-13-5.mem'),
+            (17, 26, 6, 'warpedfortesting-17-26-6.mem'),
+            (34, 53, 7, 'warpedfortesting-34-53-7.mem'),
+            (69, 107, 8, 'warpedfortesting-69-107-8.mem'),
+            (138, 214, 9, 'warpedfortesting-138-214-9.mem'),
+            (276, 429, 10, 'warpedfortesting-276-429-10.mem'),
+            (552, 858, 11, 'warpedfortesting-552-858-11.mem'),
+            (552, 859, 11, 'warpedfortesting-552-859-11.mem'),
+            (553, 858, 11, 'warpedfortesting-553-858-11.mem'),
+            (553, 859, 11, 'warpedfortesting-553-859-11.mem')]
+
         for x, y, z, tile in self.tiler.tiles():
-            print x,y,z,tile
+            self.assertTrue((x, y, z, tile.name) in expected)

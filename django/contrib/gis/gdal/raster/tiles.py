@@ -30,9 +30,8 @@ class Tiler(object):
 
         # Set raster property, reproject if necessary
         if not rast.srid == self._tile_srid:
-            rast = rast.warp(srid=self._srid)
+            rast = rast.warp(srid=self._tile_srid)
         self.rast = rast
-   
 
     def _set_zoomdown(self, value):
         """
@@ -150,5 +149,3 @@ class Tiler(object):
             for x in range(indices[0], indices[2] + 1):
                 for y in range(indices[1], indices[3] + 1):
                     yield x, y, z, self.get_tile(x, y, z)
-
-
