@@ -70,7 +70,7 @@ class GDALRaster(GDALBase):
                     if bands[i]['nodata'] is not None:
                         bnd.nodata_value = bands[i]['nodata']
             except:
-                raise #GDALException('Could not parse postgis raster.')
+                raise GDALException('Could not parse postgis raster.')
 
         # If input is dict, create empty in-memory raster.
         elif isinstance(ds_input, dict):
@@ -435,8 +435,13 @@ class GDALRaster(GDALBase):
                           'nr_of_bands': self.band_count, 
                           'datatype': self[0].datatype,
                           'name': rastername})
-        
+
+        # Set srid
         dst.srid = kwargs.get('srid', self.srid)
+
+        # Copy nodata values to warped raster
+        for i in range(self.band_count):
+            dst[i].nodata_value = self[i].nodata_value
 
         # Set geotransform from original raster and change it subsequently
         dst.geotransform = self.geotransform

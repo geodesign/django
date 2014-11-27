@@ -28,9 +28,11 @@ class Tiler(object):
         self._tile_shift = kwargs.get('tileshift', self._world_size / 2.0)
         self._zoomdown = kwargs.get('zoomdown', True)
 
-        # Set raster property, reproject if necessary
+        # Reproject the raster if necessary
         if not rast.srid == self._tile_srid:
             rast = rast.warp(srid=self._tile_srid)
+
+        # Store the raster
         self.rast = rast
 
     def _set_zoomdown(self, value):
@@ -66,13 +68,13 @@ class Tiler(object):
         # If the pixelsize is smaller than all tms sizes, default to max level
         zoomlevel = 18
 
-        # Find zoomlevel (next-upper) for the input pixel size
+        # Find next-upper zoomlevel for the raster pixel scale
         for i in range(18):
             if self.rast.scalex - tms_pixelsizes[i] >= 0:
                 zoomlevel = i
                 break
 
-        # If nextdown flag is true, adjust level
+        # If nextdown flag is true, adjust level to text-down
         if self._zoomdown:
             zoomlevel += 1
 
@@ -130,7 +132,8 @@ class Tiler(object):
         return self.rast.warp(name=name,
                               scalex=scale, scaley=-scale,
                               originx=bounds[0], originy=bounds[3],
-                              sizex=self._tile_size, sizey=self._tile_size)
+                              sizex=self._tile_size, sizey=self._tile_size,
+                              driver='MEM')
 
     def tiles(self):
         """
