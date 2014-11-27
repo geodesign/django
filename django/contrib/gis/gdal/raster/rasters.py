@@ -402,7 +402,7 @@ class GDALRaster(GDALBase):
 
     #### Warping - reprojection & resampling ####
 
-    def warp(self, data={}):
+    def warp(self, **kwargs):
         """
         Returns a warped GDALRaster with the given input characteristics.
 
@@ -416,32 +416,34 @@ class GDALRaster(GDALBase):
         specify what driver to use.
 
         Note that the new dataset is not closed, so not all data is written to
-        disk at the end of the warp routine. To make sure all data is written
-        to disk, close dataset by setting it to None, for instance:
+        disk at the end of the warp routine. The data is only written to disk
+        completely upon releasing of the object. This usually happens when the
+        object is overwritten or the function/script ends. To force all data
+        to be written to disk, close dataset by setting it to None.
 
-        dst = src.warp({srid: 4326})
+        dst = src.warp(srid=4326)
         dst = None
         """
         # Prepare driver and raster name
-        drivername = data.get('driver', self.driver.name)
-        rastername = data.get('name', self.name + '_copy.' + drivername)
+        drivername = kwargs.get('driver', self.driver.name)
+        rastername = kwargs.get('name', self.name + '_copy.' + drivername)
 
         # Setup destination raster with input or default parameters
-        dst = GDALRaster({'driver': data.get('driver', drivername),
-                          'sizex': data.get('sizex', self.sizex), 
-                          'sizey': data.get('sizey', self.sizey),
+        dst = GDALRaster({'driver': kwargs.get('driver', drivername),
+                          'sizex': kwargs.get('sizex', self.sizex), 
+                          'sizey': kwargs.get('sizey', self.sizey),
                           'nr_of_bands': self.band_count, 
                           'datatype': self[0].datatype,
                           'name': rastername})
         
-        dst.srid = data.get('srid', self.srid)
+        dst.srid = kwargs.get('srid', self.srid)
 
         # Set geotransform from original raster and change it subsequently
         dst.geotransform = self.geotransform
 
         # Transform origin coordinates and update destination geotransfrom
-        originx = data.get('originx', None)
-        originy = data.get('originy', None)
+        originx = kwargs.get('originx', None)
+        originy = kwargs.get('originy', None)
         if None in (originx, originy):
             newx, newy = utils.transform_coords(self.originx, self.originy,
                                                 self.srid, dst.srid)
@@ -454,8 +456,8 @@ class GDALRaster(GDALBase):
         dst.originy = originy
 
         # Calculate new scales and update destination geotransform
-        scalex = data.get('scalex', None)
-        scaley = data.get('scaley', None)
+        scalex = kwargs.get('scalex', None)
+        scaley = kwargs.get('scaley', None)
         if None in (scalex, scaley):
             # Calculate scale of raster in new coordinate system
             newx, newy = utils.calculate_scale(self, dst.srid)
@@ -468,7 +470,7 @@ class GDALRaster(GDALBase):
         dst.scaley = scaley
 
         # Select resampling algorithm
-        algo = data.get('algorithm', 0)
+        algo = kwargs.get('algorithm', 0)
         if isinstance(algo, str):
             algo = utils.GDAL_RESAMPLE_ALGORITHMS_INV[algo]
 
@@ -543,119 +545,3 @@ class GDALRaster(GDALBase):
 
         # Return PostGIS Raster String
         return result
-
-    #### Tiling Section ####
-
-    # Tile defining constants
-    _world_size = 2 * pi * 6378137
-    _tile_shift = _world_size / 2.0
-    _tile_size = 256
-    _tile_srid = 3857
-    _zoomdown = True
-
-    def _set_zoomdown(self, value):
-        """
-        Sets the zoomdown value. This controls if the next-above or next-below
-        tile layer should be used as the highest zoom level. Also consult the
-        `get_max_zoom_level` method.
-        """
-        self._zoomdown = value
-
-    def _get_zoomdown(self):
-        "Returns the zoomdown parameter value."
-        return self._zoomdown
-
-    zoomdown = property(_get_zoomdown, _set_zoomdown)
-
-    def get_max_zoom_level(self):
-        """
-        Returns the maximum zoomlevel for this raster's scale.
-
-        By default, the maximum zoom level is the next underlying zoomlevel
-        when compared to the raster layer's actual scale.
-
-        The behaviour is controlled by the zoomdown property. If the zoomdown
-        property is set to True (which is the default), and the original raster
-        scale lies between zoom levels 2 and 3, the max zoom level is 3, if
-        zoomdown is set to False, it is 2.
-        """
-        if not self.srid == self._tile_srid:
-            raise ValueError('This method can only be used for rasters '\
-                             'with srid {0}'.format(self._tile_srid))
-        # Calculate all pixelsizes for the TMS zoom levels
-        tms_pixelsizes = [self._world_size / (2.0**i * self._tile_size) for\
-                          i in range(1, 19)]
-
-        # If the pixelsize is smaller than all tms sizes, default to max level
-        zoomlevel = 18
-
-        # Find zoomlevel (next-upper) for the input pixel size
-        for i in range(18):
-            if self.scalex - tms_pixelsizes[i] >= 0:
-                zoomlevel = i
-                break
-
-        # If nextdown flag is true, adjust level
-        if self._zoomdown:
-            zoomlevel += 1
-
-        return zoomlevel
-
-    def get_tile_index_range(self, zoom):
-        """
-        Calculates index range for a given bounding box and zoomlevel.
-        It returns maximum and minimum x and y tile indices that overlap
-        with the input bbox at zoomlevel z.
-        """
-        if not self.srid == self._tile_srid:
-            raise ValueError('This method can only be used for rasters '\
-                             'with srid {0}'.format(self._tile_srid))
-        # Calculate tile size for given zoom level
-        tilesize = self._world_size / 2**zoom
-
-        # Get extent for raster to compute tile ranges
-        bbox = self.extent
-
-        # Calculate overlaying tile indices
-        return [
-            int((bbox[0] + self._tile_shift)/tilesize),
-            int((self._tile_shift - bbox[3])/tilesize),
-            int((bbox[2] + self._tile_shift)/tilesize),
-            int((self._tile_shift - bbox[1])/tilesize)]
-
-    def get_tile_bounds(self, x, y, z):
-        "Calculates bounding box of a x-y-z tile."
-
-        # Calculate size of tiles in meters
-        tilesize = self._world_size / 2**z
-
-        # Calculate corner values of bbox
-        xmin = x * tilesize - self._tile_shift
-        xmax = (x+1) * tilesize - self._tile_shift
-        ymin = self._tile_shift - (y+1) * tilesize
-        ymax = self._tile_shift - y * tilesize
-
-        # Return bounding box
-        return (xmin, ymin, xmax, ymax)
-
-    def get_tile_scale(self, zoom):
-        "Calculates pixel size scale for given zoom level."
-        return self._world_size / 2.0**zoom / self._tile_size
-
-    def get_tile(self, x, y, z):
-        "Extracts a tile from this raster and returns it as a GDALRaster."
-        if not self.srid == self._tile_srid:
-            raise ValueError('This method can only be used for rasters '\
-                             'with srid {0}'.format(self._tile_srid))
-
-        # Calculate scale and bounds for this tile
-        scale = self.get_tile_scale(z)
-        bounds = self.get_tile_bounds(x, y, z)
-
-        # Prepare name for tile creation
-        name = self.name + '-{0}-{1}-{2}.{3}'.format(x, y, z, self.driver.name)
-
-        # Warp this dataset into a xyz tile using the calculated parameters
-        return self.warp({'name': name, 'scalex': scale, 'scaley': -scale,
-                          'originx': bounds[0], 'originy': bounds[3],
-                          'sizex': self._tile_size, 'sizey': self._tile_size})

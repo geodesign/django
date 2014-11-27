@@ -29,8 +29,9 @@ class RasterGDALRasterTest(unittest.TestCase):
         self.ds.srid = 3086
 
         # create warped version
-        self.warped = self.ds.warp({'srid': 3857, 'driver': 'MEM',
-                                    'name': 'warpedfortesting'})
+        # self.warped = self.ds.warp({'srid': 3857, 'driver': 'MEM',
+        #                             'name': 'warpedfortesting'})
+        self.warped = self.ds.warp(srid=3857, driver='MEM',name='warpedfortesting')
 
     def test_valid_datatypes(self):
         "Testing creation of GDAL Data Source in memory."
@@ -197,38 +198,3 @@ class RasterGDALRasterTest(unittest.TestCase):
         self.assertEqual(self.warped.sizex, self.ds.sizex)
         self.assertEqual(self.warped.sizey, self.ds.sizey)
         self.assertEqual(3857, self.warped.srid)
-
-    def test_max_zoom_level(self):
-        "Tests the maximum zoom level calculation for this raster."
-        zoom = self.warped.get_max_zoom_level()
-        self.assertEqual(11, zoom)
-
-    def test_tile_index_range(self):
-        "Test the computation of the xyz tile range for a given zoom level."
-        indexrange = self.warped.get_tile_index_range(11)
-        self.assertEqual([552, 858, 553, 859], indexrange)
-
-    def test_tile_bounds(self):
-        "Tests the calculation of the tile bounds for a xyz tile."
-        bounds = self.warped.get_tile_bounds(552, 858, 11)
-        self.assertEqual((-9236039.001754418, 3228700.074765846,
-                          -9216471.122513412, 3248267.9540068507), bounds)
-
-    def test_tile_scale(self):
-        "Test the computation of the pixelsize scale (in m) of a xyz tile."
-        scale = self.warped.get_tile_scale(11)
-        self.assertEqual(76.43702828517625, scale)
-
-    def test_tile_creation(self):
-        "Tests the extraction of a xyz tile from a given dataset."
-        tile = self.warped.get_tile(552, 858, 11)
-        self.assertEqual(3857, tile.srid)
-        self.assertEqual(76.43702828517625, tile.scalex)
-        self.assertEqual(-9236039.001754418, tile.originx)
-        self.assertEqual('warpedfortesting-552-858-11.MEM', tile.name)
-
-    def test_zoomdown(self):
-        "Tests the setting for the maximum xzy tile zoom level."
-        self.assertEqual(11, self.warped.get_max_zoom_level())
-        self.warped.zoomdown = False
-        self.assertEqual(10, self.warped.get_max_zoom_level())
