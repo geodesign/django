@@ -33,7 +33,7 @@ get_ds_raster_count = int_output(lgdal.GDALGetRasterCount, [c_void_p])
 get_ds_raster_band = voidptr_output(lgdal.GDALGetRasterBand, [c_void_p, c_int])
 get_ds_projection_ref = const_string_output(lgdal.GDALGetProjectionRef, [c_void_p])
 set_ds_projection_ref = void_output(lgdal.GDALSetProjection, [c_void_p, c_char_p])
-get_ds_geotransform = void_output(lgdal.GDALGetGeoTransform, [c_void_p, POINTER(c_double*6)])
+get_ds_geotransform = void_output(lgdal.GDALGetGeoTransform, [c_void_p, POINTER(c_double*6)], errcheck=False)
 set_ds_geotransform = void_output(lgdal.GDALSetGeoTransform, [c_void_p, POINTER(c_double*6)])
 
 ### Raster Band Routines ###

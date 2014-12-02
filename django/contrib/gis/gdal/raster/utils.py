@@ -107,11 +107,11 @@ GDAL_RESAMPLE_ALGORITHMS_INV = {v: k for k, v in GDAL_RESAMPLE_ALGORITHMS.items(
 """
 POSTGIS
 
-Band Pixel Type
+Band Pixel Type definitions at line 186 of file librtcore.h
+http://postgis.net/docs/doxygen/2.2/d8/d4f/librtcore_8h_source.html#l00186
 
-ftp://ftp.refractions.net/pub/refractions/postgis/docs/html/RT_ST_BandPixelType.html
-http://postgis.net/docs/doxygen/2.2/de/de7/structrt__band__t.html
-http://postgis.net/docs/doxygen/2.2/d8/d4f/librtcore_8h_a43b88be0a4efc9d67d5c69099fc7776c.html#a43b88be0a4efc9d67d5c69099fc7776c
+Band header structure definition at line 2279 of file librtcore.h
+http://postgis.net/docs/doxygen/2.2/d8/d4f/librtcore_8h_source.html#l02279
 
 enum {
     PT_1BB=0,     /* 1-bit boolean            */

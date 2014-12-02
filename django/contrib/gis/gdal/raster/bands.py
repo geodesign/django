@@ -103,7 +103,7 @@ class GDALBand(GDALBase):
             raise ValueError('Size is larger than raster.')
 
         # Get ctypes type array function
-        ctypes_array = utils.GDAL_TO_CTYPES[self.datatype]*self.nr_of_pixels
+        ctypes_array = utils.GDAL_TO_CTYPES[self.datatype] * self.nr_of_pixels
 
         # Create c array of required size
         if data is None:

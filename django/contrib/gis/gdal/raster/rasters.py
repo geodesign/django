@@ -185,17 +185,18 @@ class GDALRaster(GDALBase):
 
     # Geotransform property (location and scale of raster)
     def _get_geotransform(self):
-        "Returns the geotransform of the data source."
+        """
+        Returns the geotransform of the data source. 
+        Returns the default geotransform if it does not exist or has not been 
+        set previously. The default is [0.0, 1.0, 0.0, 0.0, 0.0, -1.0].
+        """
 
         if not self._geotransform:
             # Create empty ctypes double array for data
             gtf = (c_double*6)()
 
-            # Write data to array
-            try:
-                capi.get_ds_geotransform(self.ptr, byref(gtf))
-            except:
-                return None
+            # Try to get data from raster, return none if GT was not defined
+            capi.get_ds_geotransform(self.ptr, byref(gtf))
 
             # Convert data to list
             self._geotransform = list(gtf)
