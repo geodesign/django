@@ -22,8 +22,11 @@ class RasterFieldTest(unittest.TestCase):
 
         for key, rast in pgrasters.items():
             x = RasterModel.objects.create(rast=rast)
-            # x = RasterModel(rast=rast)
-            # Test all raster properties
+
+            # Test raster properties
             self.assertEqual((10, 10), (x.rast.sizex, x.rast.sizey))
             self.assertEqual([0.0, 1.0, 0.0, 0.0, 0.0, -1.0], x.rast.geotransform)
-            self.assertAlmostEqual(expected_data[key] - 1, x.rast[0].nodata_value)
+            if key != 'nono':
+                self.assertAlmostEqual(expected_data[key] - 1, x.rast[0].nodata_value)
+            else:
+                self.assertAlmostEqual(None , x.rast[0].nodata_value)

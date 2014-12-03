@@ -119,11 +119,25 @@ class RasterGDALRasterTest(unittest.TestCase):
             else:
                 self.assertTrue(round(result - expected[dt], 5) == 0)
 
+    def test_pgraster_nodata_flag(self):
+        "Tests if nodata flag is picked up correctly from data."
+        ds = GDALRaster(pgrasters['nono'])
+        self.assertEqual(ds[0].nodata_value, None)
+
+        ds = GDALRaster(pgrasters['r16bsi'])
+        self.assertEqual(ds[0].nodata_value, -17)
+
     def test_pgraster_packing(self):
-        "Tests packing postgis raster data"
+        "Tests packing postgis raster data with and without nodata value."
         result = self.ds.wkb
         ds = GDALRaster(str(result))
         self.assertEqual(set(self.ds[0].data), set(ds[0].data))
+        self.assertEqual(self.ds[0].nodata_value, ds[0].nodata_value)
+
+        ds = GDALRaster({'sizex': 2, 'sizey': 2, 'nr_of_bands': 1, 'datatype': 1})
+        ds[0].data = (1, 2, 3, 4)
+        self.assertEqual([1, 2, 3, 4], ds[0].data)
+        self.assertEqual(None, ds[0].nodata_value)
 
     def test_get_spelled_out_geotransform(self):
         "Tests if correct values are returned from explicit gt value properties."

@@ -270,10 +270,10 @@ def unpack(structure, data):
     return struct.unpack('<' + structure, binascii.unhexlify(data))
 
 def chunk(data, index):
-    """Splits string data into two halfs at the input index"""
+    """Splits a string data into two parts at the input index"""
     return data[:index], data[index:]
 
-def ptr_from_dict(header, driver='MEM'):
+def ptr_from_dict(header):
     """
     Returns pointer to a raster created from input header and the
     specified driver.
@@ -293,63 +293,6 @@ def ptr_from_dict(header, driver='MEM'):
     return capi.create_ds(driver.ptr, force_bytes(header.get('name', '')),
                           header['sizex'], header['sizey'],
                           header['nr_of_bands'], pixeltype, None)
-
-def parse_wkb(data):
-    """
-    Parses a PostGIS WKB Raster String. Returns the raster header data as
-    a dict and the bands as a list.
-    """
-    # Split raster header from data
-    header, data = chunk(data, 122)
-
-    # Process header
-    header = unpack(HEADER_STRUCTURE, header)
-    header = dict(zip(HEADER_NAMES, header))
-
-    nr_of_pixels = header['sizex'] * header['sizey']
-
-    # Process bands
-    bands = []
-
-    # Parse band data
-    while data:
-        # Get pixel type for this band
-        pixeltype, data = chunk(data, 2)
-        pixeltype = unpack('B', pixeltype)[0]
-
-        # Substract nodata byte from band nodata value if exists
-        has_nodata = pixeltype >= 64
-        if has_nodata:
-            pixeltype -= 64
-
-        # String with hex type name for unpacking
-        pack_type = convert_pixeltype(pixeltype, 'postgis', 'struct')
-
-        # Length in bytes of the hex type
-        pixeltype_len = STRUCT_SIZE[pack_type]
-
-        # Get band nodata value if exists
-        if has_nodata:
-            nodata, data = chunk(data, 2 * pixeltype_len)
-            nodata = unpack(pack_type, nodata)[0]
-        else:
-            nodata = None
-
-        # PostGIS datatypes mapped to Gdalconstants data types
-        pixtype_gdal = convert_pixeltype(pixeltype, 'postgis', 'gdal')
-
-        # Chunk and unpack band data
-        band, data = chunk(data, 2 * pixeltype_len * nr_of_pixels)
-        bands.append({'type': pixtype_gdal, 'nodata': nodata,
-                      'data': binascii.unhexlify(band)})
-
-    # Check that all bands have the same pixeltype
-    if len(set([x['type'] for x in bands])) != 1:
-        raise ValidationError("Band pixeltypes are not all equal.")
-    else:
-        header['datatype'] = bands[0]['type']
-
-    return header, bands
 
 def transform_coords(originx, originy, srid_src, srid_dest):
     "Transforms input coordinates from source srid to destination srid"

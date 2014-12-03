@@ -41,37 +41,8 @@ class GDALRaster(GDALBase):
 
         # If string is not a file, try to interpret it as postgis raster
         elif isinstance(ds_input, six.string_types) and\
-             hex_regex.match(ds_input):
-
-            try:
-                # Parse data
-                header, bands = utils.parse_wkb(ds_input)
-
-                # Instantiate in-memory raster
-                self.ptr = utils.ptr_from_dict(header)
-
-                # Set projection
-                self.srid = header['srid']
-
-                # Set GeoTransform
-                self.geotransform = [
-                    header['originx'], header['scalex'], header['skewx'],
-                    header['originy'], header['skewy'], header['scaley']]
-
-                # Write bands
-                for i in range(header['nr_of_bands']):
-                    # Get band
-                    bnd = self[i]
-
-                    # Write data to band
-                    bnd.data = bands[i]['data']
-
-                    # Set band nodata value if available
-                    if bands[i]['nodata'] is not None:
-                        bnd.nodata_value = bands[i]['nodata']
-            except:
-                raise GDALException('Could not parse postgis raster.')
-
+                hex_regex.match(ds_input):
+            self.wkb = ds_input
         # If input is dict, create empty in-memory raster.
         elif isinstance(ds_input, dict):
             self.ptr = utils.ptr_from_dict(ds_input)
@@ -490,8 +461,7 @@ class GDALRaster(GDALBase):
     #### Raster IO Section ####
 
     # PostGIS WKB property
-    @property
-    def wkb(self):
+    def _get_wkb(self):
         "Retruns the raster as PostGIS WKB."
         # Get GDAL geotransform for header data
         gtf = self.geotransform
@@ -522,6 +492,10 @@ class GDALRaster(GDALBase):
             pixeltype = utils.convert_pixeltype(band.datatype,
                                                 'gdal', 'postgis')
 
+            # Add nodata packing structure
+            structure += utils.convert_pixeltype(pixeltype,
+                                                 'postgis', 'struct')
+
             # Get nodata value, if exists add to header
             nodata = band.nodata_value
             if nodata is not None:
@@ -530,18 +504,17 @@ class GDALRaster(GDALBase):
                     print 'WARNING: Negative nodata value for unsigned type.'
                     nodata = abs(nodata)
 
-                # Add nodata packing structure
-                structure += utils.convert_pixeltype(pixeltype,
-                                                     'postgis', 'struct')
-
-                # Add nodata flag to pixeltype byte
+                # Set nodata flag to true
                 pixeltype += 64
 
-                # Set header tuple with nodata value
-                bandheader = (pixeltype, nodata)
+                nodata = band.nodata_value
             else:
-                # Set header tuple without nodata value
-                bandheader = (pixeltype, )
+                # Set nodata to zero. The nodata value will be ignored because
+                # the nodata flag is set to false.
+                nodata = 0.0
+
+            # Set header tuple with nodata value
+            bandheader = (pixeltype, nodata)
 
             # Pack band header
             bandheader = utils.pack(structure, bandheader)
@@ -551,3 +524,82 @@ class GDALRaster(GDALBase):
 
         # Return PostGIS Raster String
         return result
+
+    def _set_wkb(self, data):
+        """
+        Parses a PostGIS WKB Raster String.
+        """
+        import binascii
+        # Split raster header from data
+        header, data = utils.chunk(data, 122)
+
+        # Process header
+        header = utils.unpack(utils.HEADER_STRUCTURE, header)
+        header = dict(zip(utils.HEADER_NAMES, header))
+
+        nr_of_pixels = header['sizex'] * header['sizey']
+
+        # Process bands
+        bands = []
+
+        # Parse band data
+        while data:
+            # Get pixel type for this band
+            pixeltype, data = utils.chunk(data, 2)
+            pixeltype = utils.unpack('B', pixeltype)[0]
+
+            # Substract nodata byte from band nodata value if exists
+            has_nodata = pixeltype >= 64
+            if has_nodata:
+                pixeltype -= 64
+
+            # String with hex type name for unpacking
+            pack_type = utils.convert_pixeltype(pixeltype, 'postgis', 'struct')
+
+            # Length in bytes of the hex type
+            pixeltype_len = utils.STRUCT_SIZE[pack_type]
+
+            # Get band nodata chunk
+            nodata, data = utils.chunk(data, 2 * pixeltype_len)
+
+            # If nodata is meaningful, set it otherwise use None
+            nodata = utils.unpack(pack_type, nodata)[0] if has_nodata else None
+
+            # PostGIS datatypes mapped to Gdalconstants data types
+            pixtype_gdal = utils.convert_pixeltype(pixeltype, 'postgis', 'gdal')
+
+            # Chunk and unpack band data
+            band, data = utils.chunk(data, 2 * pixeltype_len * nr_of_pixels)
+            bands.append({'type': pixtype_gdal, 'nodata': nodata,
+                          'data': binascii.unhexlify(band)})
+
+        # Check that all bands have the same pixeltype
+        if len(set([x['type'] for x in bands])) != 1:
+            raise ValidationError("Band pixeltypes are not all equal.")
+        else:
+            header['datatype'] = bands[0]['type']
+
+        # Instantiate in-memory raster from header
+        self.ptr = utils.ptr_from_dict(header)
+
+        # Set projection
+        self.srid = header['srid']
+
+        # Set GeoTransform
+        self.geotransform = [
+            header['originx'], header['scalex'], header['skewx'],
+            header['originy'], header['skewy'], header['scaley']]
+
+        # Write bands
+        for i in range(header['nr_of_bands']):
+            # Get band
+            bnd = self[i]
+
+            # Write data to band
+            bnd.data = bands[i]['data']
+
+            # Set band nodata value if available
+            if bands[i]['nodata'] is not None:
+                bnd.nodata_value = bands[i]['nodata']
+
+    wkb = property(_get_wkb, _set_wkb)

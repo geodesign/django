@@ -62,7 +62,7 @@ class GDALBand(GDALBase):
     def _set_nodata_value(self, nodata):
         "Sets the nodata value for this band."
         if not isinstance(nodata, (int, float)):
-            raise ValueError('Nodata value nees to be a float.')
+            raise ValueError('Nodata value needs to numeric.')
         capi.set_band_nodata_value(self.ptr, nodata)
 
     nodata_value = property(_get_nodata_value, _set_nodata_value)
