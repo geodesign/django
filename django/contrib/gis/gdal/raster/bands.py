@@ -15,7 +15,7 @@ class GDALBand(GDALBase):
     """
     def __init__(self, band_ptr):
         if not band_ptr:
-            raise GDALException('Cannot create Layer, invalid pointer given')
+            raise GDALException('Cannot create Band, invalid pointer given.')
         self.ptr = band_ptr
 
     @property
@@ -102,7 +102,7 @@ class GDALBand(GDALBase):
         if sizex > self.sizex or sizey > self.sizey:
             raise ValueError('Size is larger than raster.')
 
-        # Get ctypes type array function
+        # Get ctypes type array generator function
         ctypes_array = utils.GDAL_TO_CTYPES[self.datatype] * self.nr_of_pixels
 
         # Create c array of required size

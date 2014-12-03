@@ -1,17 +1,21 @@
-import os
-from math import pi
-from ctypes import byref, addressof, POINTER, c_double, c_void_p, c_char_p
+"""
+The Tiler class can be used to create Tile Map Service tiles from a GDALRaster.
 
-from django.utils import six
-from django.contrib.gis.geometry.regex import hex_regex
-from django.contrib.gis.gdal.base import GDALBase
-from django.contrib.gis.gdal.raster.driver import Driver
-from django.contrib.gis.gdal.raster.bands import GDALBand
-from django.contrib.gis.gdal.error import GDALException, SRSException,\
-    OGRIndexError
-from django.contrib.gis.gdal.srs import SpatialReference
-from django.contrib.gis.gdal.raster.prototypes import ds as capi
-from django.contrib.gis.gdal.raster import utils
+An input raster is automatically reprojected into the web-mercator projection
+(epsg 3957) and split into tiles that are aligned with the XYZ tile definitions
+of the TMS standard.
+
+For example, with a model TileModel that has three integer fields x, y and z
+and a raster field rast, the following would create a set of TMS tiles from
+a given GDALRaster
+
+    rast = GDALRaster('/path/to/raster.tif')
+    tiler = Tiler(rast)
+    for x, y, z, tile in tiler.tiles():
+        TileModel.create(x=x, y=y, z=z, rast=tile)
+"""
+from math import pi
+
 from django.contrib.gis.gdal.raster.rasters import GDALRaster
 
 class Tiler(object):
