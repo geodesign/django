@@ -379,34 +379,36 @@ class GDALRaster(GDALBase):
         Returns a warped GDALRaster with the given input characteristics.
 
         The input parameters that can be used are all geotransform factors and
-        the srid. For instance, ds.warp({'srid': 4326}) returns the raster in
-        the coordinate system WGS84.
+        the srid. For instance, ds.warp(srid=4326) returns the raster in the
+        coordinate system WGS84.
 
         By default, the warp functions keeps all parameters equal to the
         original ones. This includes the driver, a copy of the raster is
         created with the original name plus _copy. + DriverName. Alternatively,
         specify what driver to use.
 
-        Note that the new dataset is not closed, so not all data is written to
-        disk at the end of the warp routine. The data is only written to disk
-        completely upon releasing of the object. This usually happens when the
-        object is overwritten or the function/script ends. To force all data
-        to be written to disk, close dataset by setting it to None.
+        Note that the new dataset is not automatically closed, so sometimes not
+        all data is written to disk at the end of the warp routine. The data
+        might only be written to disk upon releasing of the object. The object
+        is released when it is overwritten or the function/script ends. So set
+        the GDALRaster to None to force all data to be written to disk.
 
+        src = GDALRaster('/pat/to/file.tif')
         dst = src.warp(srid=4326)
         dst = None
         """
-        # Prepare driver and raster name
+        # Prepare destination raster parameters
         drivername = kwargs.get('driver', self.driver.name)
         rastername = kwargs.get('name', self.name + '_copy.' + drivername)
+        dst_data = {'driver': kwargs.get('driver', drivername),
+                    'sizex': kwargs.get('sizex', self.sizex), 
+                    'sizey': kwargs.get('sizey', self.sizey),
+                    'nr_of_bands': self.band_count, 
+                    'datatype': self[0].datatype,
+                    'name': rastername}
 
-        # Setup destination raster with input or default parameters
-        dst = GDALRaster({'driver': kwargs.get('driver', drivername),
-                          'sizex': kwargs.get('sizex', self.sizex), 
-                          'sizey': kwargs.get('sizey', self.sizey),
-                          'nr_of_bands': self.band_count, 
-                          'datatype': self[0].datatype,
-                          'name': rastername})
+        # Create destination raster
+        dst = GDALRaster(dst_data)
 
         # Set srid
         dst.srid = kwargs.get('srid', self.srid)
