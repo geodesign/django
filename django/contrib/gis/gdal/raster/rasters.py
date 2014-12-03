@@ -1,4 +1,4 @@
-import os
+import os, binascii
 from math import pi
 from ctypes import byref, addressof, POINTER, c_double, c_void_p, c_char_p
 
@@ -529,7 +529,6 @@ class GDALRaster(GDALBase):
         """
         Parses a PostGIS WKB Raster String.
         """
-        import binascii
         # Split raster header from data
         header, data = utils.chunk(data, 122)
 
