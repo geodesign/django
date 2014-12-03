@@ -1,13 +1,18 @@
 """
-The Tiler class can be used to create Tile Map Service tiles from a GDALRaster.
+This module hosts the Tiler class.
+
+Tiler can be used to create Tile Map Service (TMS) tiles from a GDALRaster.
+
+The xyz tiles can be used in views that act as TMS endpoints and serve raster
+data in a scaleable and flexible way to endusers.
 
 An input raster is automatically reprojected into the web-mercator projection
-(epsg 3957) and split into tiles that are aligned with the XYZ tile definitions
+(epsg 3857) and split into tiles that are aligned with the XYZ tile definitions
 of the TMS standard.
 
 For example, with a model TileModel that has three integer fields x, y and z
 and a raster field rast, the following would create a set of TMS tiles from
-a given GDALRaster
+a given GDALRaster:
 
     rast = GDALRaster('/path/to/raster.tif')
     tiler = Tiler(rast)
