@@ -1,10 +1,17 @@
-from unittest import skipUnless
-from django.test import TestCase
+from unittest import skipUnless, TestCase
 from django.contrib.gis.gdal import HAS_GDAL
+from django.contrib.gis.db import models
 
 if HAS_GDAL:
-    from django.contrib.gis.gdal.raster.tests.data.pgraster import pgrasters
-    from .models import RasterModel
+    from django.contrib.gis.gdal.tests.data.pgraster import pgrasters
+
+    class RasterModel(models.Model):
+        rast = models.RasterField()
+        class Meta:
+            app_label = 'gis'
+        def __str__(self):
+            return str(self.id)
+
 
 @skipUnless(HAS_GDAL, "GDAL is required")
 class RasterFieldTest(TestCase):

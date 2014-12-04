@@ -9,7 +9,7 @@ if HAS_GDAL:
     from django.contrib.gis.gdal.srs import SpatialReference
     from django.contrib.gis.gdal.raster.rasters import GDALRaster
     from django.contrib.gis.gdal.raster.bands import GDALBand
-    from django.contrib.gis.gdal.raster.tests.data.pgraster import pgrasters
+    from django.contrib.gis.gdal.tests.data.pgraster import pgrasters
 
 valid_data_types = [
     'GDT_Byte', 'GDT_UInt16', 'GDT_Int16', 'GDT_UInt32',
