@@ -6,7 +6,7 @@ from ctypes import byref, POINTER, c_int
 from django.contrib.gis.gdal.base import GDALBase
 from django.contrib.gis.gdal.error import GDALException
 from django.contrib.gis.gdal.prototypes import raster as capi
-from django.contrib.gis.gdal.raster import utils
+from django.contrib.gis.gdal.raster import const
 
 class GDALBand(GDALBase):
     """
@@ -103,7 +103,7 @@ class GDALBand(GDALBase):
             raise ValueError('Size is larger than raster.')
 
         # Get ctypes type array generator function
-        ctypes_array = utils.GDAL_TO_CTYPES[self.datatype] * self.nr_of_pixels
+        ctypes_array = const.GDAL_TO_CTYPES[self.datatype] * self.nr_of_pixels
 
         # Create c array of required size
         if data is None:

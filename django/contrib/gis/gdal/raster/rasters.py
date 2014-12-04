@@ -11,7 +11,7 @@ from django.contrib.gis.gdal.error import GDALException, SRSException,\
     OGRIndexError
 from django.contrib.gis.gdal.srs import SpatialReference
 from django.contrib.gis.gdal.prototypes import raster as capi
-from django.contrib.gis.gdal.raster import utils
+from django.contrib.gis.gdal.raster import const, utils
 
 
 class GDALRaster(GDALBase):
@@ -452,7 +452,7 @@ class GDALRaster(GDALBase):
         # Select resampling algorithm
         algo = kwargs.get('algorithm', 0)
         if isinstance(algo, str):
-            algo = utils.GDAL_RESAMPLE_ALGORITHMS_INV[algo]
+            algo = const.GDAL_RESAMPLE_ALGORITHMS_INV[algo]
 
         # Reproject image
         capi.reproject_image(self.ptr, self.srs.wkt, dst.ptr,
@@ -478,7 +478,7 @@ class GDALRaster(GDALBase):
                         gtf[2], gtf[4], self.srid, self.sizex, self.sizey)
 
         # Pack header into binary data
-        result = utils.pack(utils.HEADER_STRUCTURE, rasterheader)
+        result = utils.pack(const.HEADER_STRUCTURE, rasterheader)
 
         # Pack band data, add to result
         for band in self:
@@ -503,7 +503,7 @@ class GDALRaster(GDALBase):
             nodata = band.nodata_value
             if nodata is not None:
                 # Sanity check on nodata value
-                if nodata < 0 and pixeltype in utils.GDAL_PIXEL_TYPES_UNISGNED:
+                if nodata < 0 and pixeltype in const.GDAL_PIXEL_TYPES_UNISGNED:
                     print 'WARNING: Negative nodata value for unsigned type.'
                     nodata = abs(nodata)
 
@@ -536,8 +536,8 @@ class GDALRaster(GDALBase):
         header, data = utils.chunk(data, 122)
 
         # Process header
-        header = utils.unpack(utils.HEADER_STRUCTURE, header)
-        header = dict(zip(utils.HEADER_NAMES, header))
+        header = utils.unpack(const.HEADER_STRUCTURE, header)
+        header = dict(zip(const.HEADER_NAMES, header))
 
         nr_of_pixels = header['sizex'] * header['sizey']
 
@@ -559,7 +559,7 @@ class GDALRaster(GDALBase):
             pack_type = utils.convert_pixeltype(pixeltype, 'postgis', 'struct')
 
             # Length in bytes of the hex type
-            pixeltype_len = utils.STRUCT_SIZE[pack_type]
+            pixeltype_len = const.STRUCT_SIZE[pack_type]
 
             # Get band nodata chunk
             nodata, data = utils.chunk(data, 2 * pixeltype_len)
