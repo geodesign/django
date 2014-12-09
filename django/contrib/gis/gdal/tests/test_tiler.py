@@ -17,7 +17,6 @@ class TilerTest(unittest.TestCase):
         self.ds_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                                     'data/raster.tif')
         self.ds = GDALRaster(self.ds_path)
-        self.ds.srid = 3086
 
         self.warped = self.ds.warp(srid=3857, driver='MEM',name='warpedfortesting')
 
