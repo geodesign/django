@@ -10,6 +10,8 @@ from unittest import skipUnless
 
 from django.contrib.gis.gdal import HAS_GDAL
 from django.contrib.gis.geos import HAS_GEOS
+from django.contrib.gis.geometry.test_data import TestDataMixin
+from django.contrib.gis.shortcuts import numpy
 from django.utils import six
 from django.utils.encoding import force_bytes
 from django.utils.six.moves import range
@@ -17,12 +19,10 @@ from django.utils.six.moves import range
 from ..test_data import TestDataMixin
 
 if HAS_GEOS:
-    from django.contrib.gis.geos import (
-        GEOSException, GEOSIndexError, GEOSGeometry, GeometryCollection, Point,
-        MultiPoint, Polygon, MultiPolygon, LinearRing, LineString,
-        MultiLineString, fromfile, fromstr, geos_version_info,
-    )
-    from django.contrib.gis.geos.base import gdal, numpy, GEOSBase
+    from .. import (GEOSException, GEOSIndexError, GEOSGeometry,
+        GeometryCollection, Point, MultiPoint, Polygon, MultiPolygon, LinearRing,
+        LineString, MultiLineString, fromfile, fromstr, geos_version_info)
+    from ..base import gdal, GEOSBase
 
 
 @skipUnless(HAS_GEOS, "Geos is required.")
