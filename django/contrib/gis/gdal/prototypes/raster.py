@@ -45,6 +45,7 @@ get_ds_projection_ref = const_string_output(std_call('GDALGetProjectionRef'), [c
 set_ds_projection_ref = void_output(std_call('GDALSetProjection'), [c_void_p, c_char_p])
 get_ds_geotransform = void_output(std_call('GDALGetGeoTransform'), [c_void_p, POINTER(c_double * 6)], errcheck=False)
 set_ds_geotransform = void_output(std_call('GDALSetGeoTransform'), [c_void_p, POINTER(c_double * 6)])
+flush_ds = int_output(std_call('GDALFlushCache'), [c_void_p])
 
 # Raster Band Routines
 band_io = void_output(std_call('GDALRasterIO'),
