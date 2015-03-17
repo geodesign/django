@@ -459,8 +459,8 @@ class BaseDatabaseSchemaEditor(object):
                 (new_type is None and new_field.rel is None)):
             raise ValueError(
                 "Cannot alter field %s into %s - they do not properly define "
-                "db_type (are you using PostGIS 1.5 or badly-written custom "
-                "fields?)" % (old_field, new_field),
+                "db_type (are you using a badly-written custom field?)" %
+                (old_field, new_field),
             )
         elif old_type is None and new_type is None and (
                 old_field.rel.through and new_field.rel.through and
