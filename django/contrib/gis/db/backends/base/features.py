@@ -35,6 +35,9 @@ class BaseSpatialFeatures(object):
     supports_distances_lookups = True
     supports_left_right_lookups = False
 
+    # Does the database have raster suport?
+    supports_raster = False
+
     @property
     def supports_bbcontains_lookup(self):
         return 'bbcontains' in self.connection.ops.gis_operators

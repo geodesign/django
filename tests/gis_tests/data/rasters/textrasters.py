@@ -1,3 +1,7 @@
+"""
+Text based test rasters
+"""
+
 JSON_RASTER = """{
     "srid": 4326,
     "origin": [0, 0],

@@ -5,6 +5,7 @@ class PostGISSchemaEditor(DatabaseSchemaEditor):
     geom_index_type = 'GIST'
     geom_index_ops = 'GIST_GEOMETRY_OPS'
     geom_index_ops_nd = 'GIST_GEOMETRY_OPS_ND'
+    rast_index_wrap = 'ST_ConvexHull(%s)'
 
     sql_add_geometry_column = "SELECT AddGeometryColumn(%(table)s, %(column)s, %(srid)s, %(geom_type)s, %(dim)s)"
     sql_drop_geometry_column = "SELECT DropGeometryColumn(%(table)s, %(column)s)"
@@ -20,12 +21,12 @@ class PostGISSchemaEditor(DatabaseSchemaEditor):
         return self.connection.ops.geo_quote_name(name)
 
     def column_sql(self, model, field, include_default=False):
-        from django.contrib.gis.db.models.fields import GeometryField
-        if not isinstance(field, GeometryField):
+        from django.contrib.gis.db.models.fields import GeometryField, RasterField
+        if not isinstance(field, (GeometryField, RasterField)):
             return super(PostGISSchemaEditor, self).column_sql(model, field, include_default)
 
-        if field.geography or self.connection.ops.geometry:
-            # Geography and Geometry (PostGIS 2.0+) columns are
+        if isinstance(field, RasterField) or field.geography or self.connection.ops.geometry:
+            # Geography, Geometry and Raster (PostGIS 2.0+) columns are
             # created normally.
             column_sql = super(PostGISSchemaEditor, self).column_sql(model, field, include_default)
         else:
@@ -57,7 +58,11 @@ class PostGISSchemaEditor(DatabaseSchemaEditor):
             # we use GIST_GEOMETRY_OPS, on 2.0 we use either "nd" ops
             # which are fast on multidimensional cases, or just plain
             # gist index for the 2d case.
-            if field.geography:
+            column = self.quote_name(field.column)
+            if isinstance(field, RasterField):
+                column = self.rast_index_wrap % field.column
+                index_ops = ''
+            elif field.geography:
                 index_ops = ''
             elif self.connection.ops.geometry:
                 if field.dim > 2:
@@ -66,11 +71,12 @@ class PostGISSchemaEditor(DatabaseSchemaEditor):
                     index_ops = ''
             else:
                 index_ops = self.geom_index_ops
+
             self.geometry_sql.append(
                 self.sql_add_spatial_index % {
                     "index": self.quote_name('%s_%s_id' % (model._meta.db_table, field.column)),
                     "table": self.quote_name(model._meta.db_table),
-                    "column": self.quote_name(field.column),
+                    "column": column,
                     "index_type": self.geom_index_type,
                     "ops": index_ops,
                 }
