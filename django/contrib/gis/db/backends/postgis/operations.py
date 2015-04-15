@@ -17,7 +17,7 @@ from django.db.utils import ProgrammingError
 from django.utils.functional import cached_property
 
 from .models import PostGISGeometryColumns, PostGISSpatialRefSys
-
+from .pgraster import get_pgraster_srid
 
 class PostGISOperator(SpatialOperator):
     def __init__(self, geography=False, **kwargs):
@@ -291,10 +291,21 @@ class PostGISOperations(BaseSpatialOperations, DatabaseOperations):
         SRID of the field.  Specifically, this routine will substitute in the
         ST_Transform() function call.
         """
-        if value is None or value.srid == f.srid:
-            placeholder = '%s'
+        # Get the srid for this object
+        if value is None:
+            value_srid = None
+        if f.geom_type == 'RASTER':
+            value_srid = get_pgraster_srid(value)
         else:
-            # Adding Transform() to the SQL placeholder.
+            value_srid = value.srid
+
+        # Adding Transform() to the SQL placeholder if the value srid
+        # not equal to the field srid.
+        if value_srid is None or value_srid == f.srid:
+            placeholder = '%s'
+        elif f.geom_type == 'RASTER':
+            placeholder = '%s((%%s)::raster, %s)' % (self.transform, f.srid)
+        else:
             placeholder = '%s(%%s, %s)' % (self.transform, f.srid)
 
         if hasattr(value, 'as_sql'):
@@ -379,6 +390,8 @@ class PostGISOperations(BaseSpatialOperations, DatabaseOperations):
     def spatial_ref_sys(self):
         return PostGISSpatialRefSys
 
+    # Routines to convert between PostGIS rasters and dicts 
+    # readable by GDALRaster.
     def parse_raster(self, value):
         return from_pgraster(value)
 

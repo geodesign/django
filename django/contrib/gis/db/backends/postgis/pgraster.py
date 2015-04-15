@@ -37,6 +37,15 @@ def band_to_hex(band):
     return binascii.hexlify(band.data(as_memoryview=True)).upper()
 
 
+def get_pgraster_srid(data):
+    """
+    Extracts the SRID from a PostGIS raster string.
+    """
+    if data is None:
+        return
+    return unpack('i', data[106:114])[0]
+
+
 def from_pgraster(data):
     """
     Converts a PostGIS HEX String into a python dictionary.
@@ -87,7 +96,7 @@ def from_pgraster(data):
 
     # Process raster header
     return {
-        'srid': int(header[8]),
+        'srid': int(header[9]),
         'width': header[10], 'height': header[11],
         'datatype': pixeltypes[0],
         'origin': (header[5], header[6]),
@@ -142,6 +151,4 @@ def to_pgraster(rast):
         result += bandheader + band_to_hex(band)
 
     # Cast raster to string before passing it to the DB
-    result = result.decode()
-
-    return result
+    return result.decode()

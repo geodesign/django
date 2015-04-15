@@ -52,17 +52,17 @@ class SpatialProxy(object):
         # The geographic type of the field.
         gtype = self._field.geom_type
 
-        # For raster fields, assure input is None or a string, dict or raster instance.
         if gtype == 'RASTER' and (value is None or isinstance(value, six.string_types + (dict, self._klass))):
+            # For raster fields, assure input is None or a string, dict or raster instance.
             pass
-        # The geometry type must match that of the field -- unless the
-        # general GeometryField is used.
         elif isinstance(value, self._klass) and (str(value.geom_type).upper() == gtype or gtype == 'GEOMETRY'):
-            # Assigning the SRID if the value is a geometry.
+            # The geometry type must match that of the field -- unless the
+            # general GeometryField is used.
             if value.srid is None:
+                # Assigning the field SRID if the geometry has no SRID.
                 value.srid = self._field.srid
-        # Set geometries with None, WKT, HEX, or WKB
         elif value is None or isinstance(value, six.string_types + (six.memoryview,)):
+            # Set geometries with None, WKT, HEX, or WKB
             pass
         else:
             raise TypeError('Cannot set %s SpatialProxy (%s) with value of type: %s' % (

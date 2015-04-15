@@ -145,6 +145,13 @@ class BaseSpatialField(Field):
         """
         return self.units_name(connection).lower() in self.geodetic_units
 
+    def get_placeholder(self, value, compiler, connection):
+        """
+        Returns the placeholder for the spaial column for the
+        given value.
+        """
+        return connection.ops.get_geom_placeholder(self, value, compiler)
+
 
 class GeometryField(GeoSelectFormatMixin, BaseSpatialField):
     "The base Geometry field -- maps to the OpenGIS Specification Geometry type."
@@ -326,13 +333,6 @@ class GeometryField(GeoSelectFormatMixin, BaseSpatialField):
             return None
         else:
             return connection.ops.Adapter(self.get_prep_value(value))
-
-    def get_placeholder(self, value, compiler, connection):
-        """
-        Returns the placeholder for the geometry column for the
-        given value.
-        """
-        return connection.ops.get_geom_placeholder(self, value, compiler)
 
 
 for klass in gis_lookups.values():
