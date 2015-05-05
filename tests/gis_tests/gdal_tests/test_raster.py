@@ -155,6 +155,101 @@ class GDALRasterTests(unittest.TestCase):
         else:
             self.assertEqual(restored_raster.bands[0].data(), self.rs.bands[0].data())
 
+    def test_raster_warp(self):
+        # Create in memory raster
+        source = GDALRaster({
+            'datatype': 1,
+            'driver': 'MEM',
+            'name': 'sourceraster',
+            'width': 4,
+            'height': 4,
+            'nr_of_bands': 1,
+            'srid': 3086,
+            'origin': (500000, 400000),
+            'scale': (100, -100),
+            'skew': (0, 0),
+            'bands': [{
+                'data': range(16),
+                'nodata_value': 255
+            }]
+        })
+
+        # Test altering the scale, width, and height of a raster
+        data = {
+            'scale': [200, -200],
+            'width': 2,
+            'height': 2
+        }
+        target = source.warp(data)
+        self.assertEqual(target.width, data['width'])
+        self.assertEqual(target.height, data['height'])
+        self.assertEqual(target.scale, data['scale'])
+        self.assertEqual(target.bands[0].datatype(), source.bands[0].datatype())
+        self.assertEqual(target.name, 'sourceraster_copy.MEM')
+        result = target.bands[0].data()
+        if numpy:
+            result = result.tolist()
+        self.assertEqual(result, [[5, 7], [13, 15]])
+
+        # Test altering the name and datatype (to float)
+        data = {
+            'name': '/path/to/targetraster.tif',
+            'datatype': 6
+        }
+        target = source.warp(data)
+        self.assertEqual(target.bands[0].datatype(), 6)
+        self.assertEqual(target.name, '/path/to/targetraster.tif')
+        self.assertEqual(target.driver.name, 'MEM')  # The driver is derived from source, not the name
+        result = target.bands[0].data()
+        if numpy:
+            result = result.tolist()
+        self.assertEqual(
+            result,
+            [[0.0, 1.0, 2.0, 3.0],
+             [4.0, 5.0, 6.0, 7.0],
+             [8.0, 9.0, 10.0, 11.0],
+             [12.0, 13.0, 14.0, 15.0]]
+        )
+
+    def test_raster_transform(self):
+        # Create in memory raster
+        source = GDALRaster({
+            'datatype': 1,
+            'driver': 'MEM',
+            'name': 'sourceraster',
+            'width': 4,
+            'height': 4,
+            'nr_of_bands': 1,
+            'srid': 3086,
+            'origin': (500000, 400000),
+            'scale': (1000000, -1000000),
+            'skew': (0, 0),
+            'bands': [{
+                'data': range(16),
+                'nodata_value': 255
+            }]
+        })
+        # Transform raster into srid 4326. The reprojection of a large
+        # scale raster skews the data matrix.
+        target = source.transform(4326)
+        self.assertEqual(target.srs.srid, 4326)
+        self.assertEqual(target.width, source.width)
+        self.assertEqual(target.height, source.height)
+        self.assertEqual(target.bands[0].datatype(), source.bands[0].datatype())
+        self.assertEqual(target.origin, [-82.98487731361841, 27.601924753080144])
+        self.assertEqual(target.scale, [11.016417907927423, -11.016417907927423])
+        self.assertEqual(target.skew, [0, 0])
+        result = target.bands[0].data()
+        if numpy:
+            result = result.tolist()
+        self.assertEqual(
+            result,
+            [[0, 1, 2, 0],
+             [4, 5, 7, 0],
+             [8, 10, 11, 0],
+             [12, 14, 15, 0]]
+        )
+
 
 @unittest.skipUnless(HAS_GDAL, "GDAL is required")
 class GDALBandTests(unittest.TestCase):

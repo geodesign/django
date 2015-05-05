@@ -1,12 +1,14 @@
 import json
 import os
-from ctypes import addressof, byref, c_double
+from ctypes import addressof, byref, c_double, c_void_p
+from math import copysign
 
 from django.contrib.gis.gdal.base import GDALBase
 from django.contrib.gis.gdal.driver import Driver
 from django.contrib.gis.gdal.error import GDALException
 from django.contrib.gis.gdal.prototypes import raster as capi
 from django.contrib.gis.gdal.raster.band import GDALBand
+from django.contrib.gis.gdal.raster.const import GDAL_RESAMPLE_ALGORITHMS
 from django.contrib.gis.gdal.srs import SpatialReference, SRSException
 from django.contrib.gis.geometry.regex import json_regex
 from django.utils import six
@@ -278,3 +280,121 @@ class GDALRaster(GDALBase):
         for idx in range(1, capi.get_ds_raster_count(self._ptr) + 1):
             bands.append(GDALBand(self, idx))
         return bands
+
+    def warp(self, ds_input, resampling='NearestNeighbour'):
+        """
+        Returns a warped GDALRaster with the given input characteristics.
+
+        The input is expected to be a dictionary containing the parameters
+        of the target raster. Allowed value are the width, height, srid, origin,
+        scale, skew, datatype, driver, and name (filename).
+
+        By default, the warp functions keeps all parameters equal to the
+        original ones. This includes the driver. For the name of the target
+        raster, the name of the source raster will be used and appended with
+        _copy. + source_driver_name.
+
+        In addition, the resampling algorithm can be specified with the "resampling"
+        input parameter. The default is NearestNeighbor. For a list of all options
+        consult the GDAL_RESAMPLE_ALGORITHMS constant.
+        """
+        # Get the parameters defining the geotransform, srid and size of the raster
+        if 'width' not in ds_input:
+            ds_input['width'] = self.width
+
+        if 'height' not in ds_input:
+            ds_input['height'] = self.height
+
+        if 'srid' not in ds_input:
+            ds_input['srid'] = self.srs.srid
+
+        if 'origin' not in ds_input:
+            ds_input['origin'] = self.origin
+
+        if 'scale' not in ds_input:
+            ds_input['scale'] = self.scale
+
+        if 'skew' not in ds_input:
+            ds_input['skew'] = self.skew
+
+        # Get the driver, name and datatype of the target raster
+        if 'driver' not in ds_input:
+            ds_input['driver'] = self.driver.name
+
+        if 'name' not in ds_input:
+            ds_input['name'] = self.name + '_copy.' + self.driver.name
+
+        if 'datatype' not in ds_input:
+            ds_input['datatype'] = self.bands[0].datatype()
+
+        # Set the number of bands
+        ds_input['nr_of_bands'] = len(self.bands)
+
+        # Create target raster
+        target = GDALRaster(ds_input, write=True)
+
+        # Copy nodata values to warped raster
+        for index, band in enumerate(self.bands):
+            target.bands[index].nodata_value = band.nodata_value
+
+        # Select resampling algorithm
+        algorithm = GDAL_RESAMPLE_ALGORITHMS[resampling]
+
+        # Reproject image
+        capi.reproject_image(
+            self.ptr, self.srs.wkt,
+            target.ptr, target.srs.wkt,
+            algorithm, 0.0, 0.0,
+            c_void_p(), c_void_p(), c_void_p()
+        )
+
+        return target
+
+    def transform(self, srid, driver=None, name=None, squared_pixels=True):
+        """
+        Returns a copy of this raster reprojected into the given srid.
+        """
+        from django.contrib.gis.geos import Point
+
+        # Calculate coordinates of the origin in the target srs
+        origin = Point(self.origin, srid=self.srs.srid)
+        origin.transform(srid)
+
+        # Calculate lower right corner point in the target srs
+        lrc = Point(
+            self.origin.x + self.scale.x * self.width,
+            self.origin.y + self.scale.y * self.height,
+            srid=self.srs.srid
+        )
+        lrc.transform(srid)
+
+        # Calculate the scale of the target raster
+        scalex = abs(origin.x - lrc.x) / self.width
+        scaley = abs(origin.y - lrc.y) / self.height
+
+        # If squared pixels are requested, make scales equal by keeping the
+        # larger value. This assures that the target raster completely overlays
+        # the source raster since the number of pixels is kept the same.
+        if squared_pixels:
+            scalex = scaley = max(abs(scalex), abs(scaley))
+
+        # Assure the signs of the scale are the same as in the source raster
+        scalex = copysign(scalex, self.scale.x)
+        scaley = copysign(scaley, self.scale.y)
+
+        # Construct the target warp dictionary
+        data = {
+            'origin': [origin.x, origin.y],
+            'scale': [scalex, scaley],
+            'srid': srid
+        }
+
+        # Change driver and filepath if provided
+        if driver:
+            data['driver'] = driver
+
+        if name:
+            data['name'] = name
+
+        # Warp the raster into new srid and return
+        return self.warp(data)
