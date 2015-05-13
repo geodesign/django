@@ -107,3 +107,42 @@ class PostGISIntrospection(DatabaseIntrospection):
             cursor.close()
 
         return field_type, field_params
+
+    # Override get_indices to include raster indices in retrieval
+    # Raster indices have pg_index.indkey value 0 because they are an
+    # expression over the raster column through the ST_ConvexHull funciton.
+    # So the default query has to be adapted to include raster indices.
+    def get_indexes(self, cursor, table_name):
+        # This query retrieves each index on the given table, including the
+        # first associated field name
+        cursor.execute("""
+            SELECT DISTINCT attr.attname, idx.indkey, idx.indisunique, idx.indisprimary
+            FROM pg_catalog.pg_class c, pg_catalog.pg_class c2,
+                pg_catalog.pg_index idx, pg_catalog.pg_attribute attr
+            LEFT JOIN pg_catalog.pg_type t ON t.oid = attr.atttypid
+            WHERE
+                c.oid = idx.indrelid
+                AND idx.indexrelid = c2.oid
+                AND attr.attrelid = c.oid
+                AND (
+                    attr.attnum = idx.indkey[0] OR
+                    (t.typname LIKE 'raster' AND idx.indkey = '0')
+                )
+                AND attr.attnum > 0
+                AND c.relname = %s""", [table_name])
+        indexes = {}
+        for row in cursor.fetchall():
+            # row[1] (idx.indkey) is stored in the DB as an array. It comes out as
+            # a string of space-separated integers. This designates the field
+            # indexes (1-based) of the fields that have indexes on the table.
+            # Here, we skip any indexes across multiple fields.
+            if ' ' in row[1]:
+                continue
+            if row[0] not in indexes:
+                indexes[row[0]] = {'primary_key': False, 'unique': False}
+            # It's possible to have the unique and PK constraints in separate indexes.
+            if row[3]:
+                indexes[row[0]]['primary_key'] = True
+            if row[2]:
+                indexes[row[0]]['unique'] = True
+        return indexes
