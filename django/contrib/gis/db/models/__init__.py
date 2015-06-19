@@ -21,4 +21,4 @@ from django.contrib.gis.db.models.manager import GeoManager  # NOQA
 from django.contrib.gis.db.models.fields import (  # NOQA
     GeometryField, PointField, LineStringField, PolygonField,
     MultiPointField, MultiLineStringField, MultiPolygonField,
-    GeometryCollectionField)
+    GeometryCollectionField, RasterField)
