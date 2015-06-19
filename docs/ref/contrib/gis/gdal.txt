@@ -1122,7 +1122,7 @@ blue.
     created from different input sources (using the sample data from the GeoDjango
     tests, see the :ref:`gdal_sample_data` section)::
 
-        >>> from django.contrib.gis.gdal.raster.source import GDALRaster
+        >>> from django.contrib.gis.gdal import GDALRaster
         >>> rst = GDALRaster('/path/to/your/raster.tif', write=False)
         >>> rst.name
         '/path/to/your/raster.tif'
