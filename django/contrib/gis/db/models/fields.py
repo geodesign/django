@@ -1,8 +1,9 @@
 from django.contrib.gis import forms
 from django.contrib.gis.db.models.lookups import gis_lookups
 from django.contrib.gis.db.models.proxy import SpatialProxy
-from django.contrib.gis.gdal.raster.source import GDALRaster
 from django.contrib.gis.geometry.backend import Geometry, GeometryException
+#from django.contrib.gis.gdal.raster.source import GDALRaster
+from django.contrib.gis.gdal import HAS_GDAL
 from django.core.exceptions import ImproperlyConfigured
 from django.db.models.expressions import Expression
 from django.db.models.fields import Field
@@ -425,9 +426,13 @@ class RasterField(BaseSpatialField):
         return super(RasterField, self).get_db_prep_value(value, connection, prepared)
 
     def contribute_to_class(self, cls, name, **kwargs):
-        super(RasterField, self).contribute_to_class(cls, name, **kwargs)
-        # Setup for lazy-instantiated Raster object. For large querysets, the
-        # instantiation of all GDALRasters can potentially be expensive. This
-        # delays the instantiation of the objects to the moment of evaluation
-        # of the raster attribute.
-        setattr(cls, self.attname, SpatialProxy(GDALRaster, self))
+        if HAS_GDAL:
+            from django.contrib.gis.gdal import GDALRaster
+            super(RasterField, self).contribute_to_class(cls, name, **kwargs)
+            # Setup for lazy-instantiated Raster object. For large querysets, the
+            # instantiation of all GDALRasters can potentially be expensive. This
+            # delays the instantiation of the objects to the moment of evaluation
+            # of the raster attribute.
+            setattr(cls, self.attname, SpatialProxy(GDALRaster, self))
+        else:
+            raise ImproperlyConfigured('RasterField requires GDAL.')
