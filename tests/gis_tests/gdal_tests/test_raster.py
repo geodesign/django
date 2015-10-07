@@ -190,6 +190,7 @@ class GDALRasterTests(unittest.TestCase):
         else:
             self.assertEqual(restored_raster.bands[0].data(), self.rs.bands[0].data())
 
+<<<<<<< 19e2114634c322d5a58f3dd282a3a3cfd0f5aa24
     def test_offset_size_and_shape_on_raster_creation(self):
         rast = GDALRaster({
             'datatype': 1,
@@ -247,6 +248,18 @@ class GDALRasterTests(unittest.TestCase):
             result = result.flatten().tolist()
         # Band data is equal to zero becaues no nodata value has been specified.
         self.assertEqual(result, [0] * 4)
+
+    def test_compressed_file_based_raster_creation(self):
+        # Prepare tempfile
+        rstfile = tempfile.NamedTemporaryFile(suffix='.tif')
+
+        # Create file-based raster from scratch
+        compressed = self.rs.warp({'compress': 'PACKBITS', 'name': rstfile.name})
+
+        # Check if compression worked
+        self.assertTrue(
+            os.path.getsize(compressed.name) < os.path.getsize(self.rs.name)
+        )
 
     def test_raster_warp(self):
         # Create in memory raster
@@ -350,8 +363,8 @@ class GDALRasterTests(unittest.TestCase):
             }],
         })
 
-        # Transform raster into srid 4326.
-        target = source.transform(3086)
+        # Transform raster into srid 3086
+        target = source.transform(3086, compress='PACKBITS', tiled=True)
 
         # Reload data from disk
         target = GDALRaster(target.name)

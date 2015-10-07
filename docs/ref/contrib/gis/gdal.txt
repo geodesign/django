@@ -1151,7 +1151,23 @@ blue.
         the :meth:`GDALBand.data()<django.contrib.gis.gdal.GDALBand.data>`
         method.
 
+<<<<<<< 96f97691ad5e1483263cea3bb4e4021b4c8dcc41
     .. attribute:: name
+=======
+    .. versionchanged:: 1.9
+
+        ``GDALRaster`` objects can now be instantiated directly from raw data.
+        Setters have been added for the following properties: ``srs``,
+        ``geotransform``, ``origin``, ``scale``, and ``skew``.
+
+    .. versionchanged:: 2.0
+        File based ``GDALRaster`` objects can be compressed using the
+        ``compress`` option in the ``ds_input`` dictionary. Allowed options are
+        ``JPEG``, ``LZW``, ``PACKBITS``, ``DEFLATE``, ``CCITTRLE``,
+        ``CCITTFAX3``, ``CCITTFAX4``, ``LZMA``.
+
+     .. attribute:: name
+>>>>>>> Stash: GDALRaster compress and tiled options
 
         The name of the source which is equivalent to the input file path or the name
         provided upon instantiation.
