@@ -1,13 +1,15 @@
 import json
 import os
-from ctypes import addressof, byref, c_double, c_void_p
+from ctypes import POINTER, addressof, byref, c_char_p, c_double, c_void_p
 
 from django.contrib.gis.gdal.base import GDALBase
 from django.contrib.gis.gdal.driver import Driver
 from django.contrib.gis.gdal.error import GDALException
 from django.contrib.gis.gdal.prototypes import raster as capi
 from django.contrib.gis.gdal.raster.band import BandList
-from django.contrib.gis.gdal.raster.const import GDAL_RESAMPLE_ALGORITHMS
+from django.contrib.gis.gdal.raster.const import (
+    GDAL_COMPRESS_OPTIONS, GDAL_RESAMPLE_ALGORITHMS,
+)
 from django.contrib.gis.gdal.srs import SpatialReference, SRSException
 from django.contrib.gis.geometry.regex import json_regex
 from django.utils import six
@@ -91,6 +93,32 @@ class GDALRaster(GDALBase):
             if 'width' not in ds_input or 'height' not in ds_input:
                 raise GDALException('Specify width and height attributes for JSON or dict input.')
 
+            # Check if srid was specified
+            if 'srid' not in ds_input:
+                raise GDALException('Specify srid for JSON or dict input.')
+
+            # Create gdal options array
+            papsz_options = []
+
+            # Look for compress options
+            compress = ds_input.get('compress', None)
+            if compress:
+                compress = compress.upper()
+                if compress not in GDAL_COMPRESS_OPTIONS:
+                    msg = 'Unknown compress option {0}, choose one from {1}'.format(compress, GDAL_COMPRESS_OPTIONS)
+                    raise GDALException(msg)
+                papsz_options.append('COMPRESS=' + compress)
+
+            # Look for internal tiles options
+            internal_tiles = ds_input.get('tiled', False)
+            if internal_tiles in (True, 'True'):
+                papsz_options.append('TILED=YES')
+
+            # Create ctypes pointer containing options
+            papsz_options = POINTER(c_char_p * len(papsz_options))(
+                (c_char_p * len(papsz_options))(*papsz_options)
+            )
+
             # Create GDAL Raster
             self._ptr = capi.create_ds(
                 driver._ptr,
@@ -99,7 +127,7 @@ class GDALRaster(GDALBase):
                 ds_input['height'],
                 ds_input.get('nr_of_bands', len(ds_input.get('bands', []))),
                 ds_input.get('datatype', 6),
-                None
+                papsz_options,
             )
 
             # Set band data if provided
@@ -120,6 +148,7 @@ class GDALRaster(GDALBase):
 
             if 'skew' in ds_input:
                 self.skew.x, self.skew.y = ds_input['skew']
+
         elif isinstance(ds_input, c_void_p):
             # Instantiate the object using an existing pointer to a gdal raster.
             self._ptr = ds_input
@@ -346,7 +375,7 @@ class GDALRaster(GDALBase):
         return target
 
     def transform(self, srid, driver=None, name=None, resampling='NearestNeighbour',
-                  max_error=0.0):
+                  max_error=0.0, compress='', tiled=False):
         """
         Returns a copy of this raster reprojected into the given SRID.
         """
@@ -371,6 +400,8 @@ class GDALRaster(GDALBase):
             'origin': [target.origin.x, target.origin.y],
             'scale': [target.scale.x, target.scale.y],
             'skew': [target.skew.x, target.skew.y],
+            'compress': compress,
+            'tiled': tiled
         }
 
         # Set the driver and filepath if provided
