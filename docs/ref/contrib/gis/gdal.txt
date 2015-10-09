@@ -1142,7 +1142,13 @@ blue.
         Setters have been added for the following properties: ``srs``,
         ``geotransform``, ``origin``, ``scale``, and ``skew``.
 
-    .. attribute:: name
+    .. versionchanged:: 2.0
+        File based ``GDALRaster`` objects can be compressed using the
+        ``compress`` option in the ``ds_input`` dictionary. Allowed options are
+        ``JPEG``, ``LZW``, ``PACKBITS``, ``DEFLATE``, ``CCITTRLE``,
+        ``CCITTFAX3``, ``CCITTFAX4``, ``LZMA``.
+
+     .. attribute:: name
 
         The name of the source which is equivalent to the input file path or the name
         provided upon instantiation.
