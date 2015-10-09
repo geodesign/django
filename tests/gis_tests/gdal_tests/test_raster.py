@@ -187,6 +187,18 @@ class GDALRasterTests(unittest.TestCase):
         else:
             self.assertEqual(restored_raster.bands[0].data(), self.rs.bands[0].data())
 
+    def test_compressed_file_based_raster_creation(self):
+        # Prepare tempfile
+        rstfile = tempfile.NamedTemporaryFile(suffix='.tif')
+
+        # Create file-based raster from scratch
+        compressed = self.rs.warp({'compress': 'PACKBITS', 'name': rstfile.name})
+
+        # Check if compression worked
+        self.assertTrue(
+            os.path.getsize(compressed.name) < os.path.getsize(self.rs.name)
+        )
+
     def test_raster_warp(self):
         # Create in memory raster
         source = GDALRaster({
@@ -268,8 +280,8 @@ class GDALRasterTests(unittest.TestCase):
             }],
         })
 
-        # Transform raster into srid 4326.
-        target = source.transform(3086)
+        # Transform raster into srid 3086
+        target = source.transform(3086, compress='PACKBITS', tiled=True)
 
         # Reload data from disk
         target = GDALRaster(target.name)
