@@ -79,6 +79,36 @@ Minor features
   :attr:`~django.contrib.gis.gdal.GDALBand.mean`
   and :attr:`~django.contrib.gis.gdal.GDALBand.std` attributes.
 
+* Added support for the :class:`~django.contrib.gis.db.models.MakeLine`
+  aggregate and :class:`~django.contrib.gis.db.models.functions.GeoHash`
+  function on SpatiaLite.
+
+* Added support for the
+  :class:`~django.contrib.gis.db.models.functions.Difference`,
+  :class:`~django.contrib.gis.db.models.functions.Intersection`, and
+  :class:`~django.contrib.gis.db.models.functions.SymDifference`
+  functions on MySQL.
+
+* Added support for instantiating empty GEOS geometries.
+
+* The new :attr:`~django.contrib.gis.geos.WKTWriter.trim` and
+  :attr:`~django.contrib.gis.geos.WKTWriter.precision` properties
+  of :class:`~django.contrib.gis.geos.WKTWriter` allow controlling
+  output of the fractional part of the coordinates in WKT.
+
+* Added the :attr:`LineString.closed
+  <django.contrib.gis.geos.LineString.closed>` and
+  :attr:`MultiLineString.closed
+  <django.contrib.gis.geos.MultiLineString.closed>` properties.
+
+* The :doc:`GeoJSON serializer </ref/contrib/gis/serializers>` now outputs the
+  primary key of objects in the ``properties`` dictionary if specific fields
+  aren't specified.
+
+* The ability to replicate input data on the :meth:`GDALBand.data()
+  <django.contrib.gis.gdal.GDALBand.data>` method was added. Band data can
+  now be updated with repeated values efficiently.
+
 :mod:`django.contrib.messages`
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
