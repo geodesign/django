@@ -92,7 +92,7 @@ class SpatiaLiteOperations(BaseSpatialOperations, DatabaseOperations):
 
     @cached_property
     def unsupported_functions(self):
-        unsupported = {'BoundingCircle', 'ForceRHR', 'GeoHash', 'MemSize'}
+        unsupported = {'BoundingCircle', 'ForceRHR', 'GeoHash', 'MemSize', 'IsValid', 'MakeValid',}
         if not self.gml:
             unsupported.add('AsGML')
         if not self.kml:

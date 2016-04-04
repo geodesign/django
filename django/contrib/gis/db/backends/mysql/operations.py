@@ -49,6 +49,7 @@ class MySQLOperations(BaseSpatialOperations, DatabaseOperations):
         unsupported = {
             'AsGeoJSON', 'AsGML', 'AsKML', 'AsSVG', 'BoundingCircle',
             'Difference', 'ForceRHR', 'GeoHash', 'Intersection', 'MemSize',
+            'IsValid', 'MakeValid',
             'Perimeter', 'PointOnSurface', 'Reverse', 'Scale', 'SnapToGrid',
             'SymDifference', 'Transform', 'Translate',
         }
