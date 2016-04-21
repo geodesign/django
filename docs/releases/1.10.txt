@@ -115,6 +115,9 @@ Minor features
   ``isvalid`` lookup for PostGIS backends. This allows filtering and repairing
   invalid geometries on the database side.
 
+* Added raster support for all :doc:`spatial lookups
+  </ref/contrib/gis/geoquerysets>`.
+
 :mod:`django.contrib.messages`
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
