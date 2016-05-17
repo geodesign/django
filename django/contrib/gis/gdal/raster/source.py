@@ -132,7 +132,11 @@ class GDALRaster(GDALBase):
             # Set band data if provided
             for i, band_input in enumerate(ds_input.get('bands', [])):
                 band = self.bands[i]
-                band.data(band_input['data'])
+                band.data(
+                    data=band_input.get('data'),
+                    size=band_input.get('size', None),
+                    shape=band_input.get('shape', None),
+                )
                 if 'nodata_value' in band_input:
                     band.nodata_value = band_input['nodata_value']
 
@@ -362,15 +366,13 @@ class GDALRaster(GDALBase):
         if 'datatype' not in ds_input:
             ds_input['datatype'] = self.bands[0].datatype()
 
-        # Set the number of bands
-        ds_input['nr_of_bands'] = len(self.bands)
+        # Copy nodata values to warped raster, initiate raster as emtpy.
+        ds_input['bands'] = [
+            {'data': [bnd.nodata_value], 'nodata_value': bnd.nodata_value, 'shape': (1, 1)} for bnd in self.bands
+        ]
 
         # Create target raster
         target = GDALRaster(ds_input, write=True)
-
-        # Copy nodata values to warped raster
-        for index, band in enumerate(self.bands):
-            target.bands[index].nodata_value = band.nodata_value
 
         # Select resampling algorithm
         algorithm = GDAL_RESAMPLE_ALGORITHMS[resampling]
