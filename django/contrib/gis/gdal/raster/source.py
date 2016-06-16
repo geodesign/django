@@ -367,9 +367,17 @@ class GDALRaster(GDALBase):
             ds_input['datatype'] = self.bands[0].datatype()
 
         # Copy nodata values to warped raster, initiate raster as emtpy.
-        ds_input['bands'] = [
-            {'data': [bnd.nodata_value], 'nodata_value': bnd.nodata_value, 'shape': (1, 1)} for bnd in self.bands
-        ]
+        # Create band data dictionary.
+        ds_input['bands'] = []
+        for bnd in self.bands:
+            # The initial value should be the nodata value, or zero if no
+            # such value exists.
+            initial_value = [bnd.nodata_value if bnd.nodata_value is not None else 0]
+            ds_input['bands'].append({
+                'data': initial_value,
+                'nodata_value': bnd.nodata_value,
+                'shape': (1, 1),
+            })
 
         # Create target raster
         target = GDALRaster(ds_input, write=True)
