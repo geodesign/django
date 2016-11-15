@@ -43,3 +43,14 @@ GDAL_RESAMPLE_ALGORITHMS = {
     'Average': 5,
     'Mode': 6,
 }
+
+GDAL_COMPRESS_OPTIONS = (
+    'JPEG',
+    'LZW',
+    'PACKBITS',
+    'DEFLATE',
+    'CCITTRLE',
+    'CCITTFAX3',
+    'CCITTFAX4',
+    'LZMA',
+)
