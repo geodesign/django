@@ -43,3 +43,9 @@ GDAL_RESAMPLE_ALGORITHMS = {
     'Average': 5,
     'Mode': 6,
 }
+
+# Fixed basepath for buffer based GDAL in memory files.
+VSI_FILESYSTEM_BASEPATH = '/vsimem/'
+# Flag for managing ownership over buffer when creating VSI in
+# memory files.
+VSI_TAKE_BUFFER_OWNERSHIP = False

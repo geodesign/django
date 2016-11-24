@@ -60,7 +60,7 @@ if HAS_GDAL:
 
 
 @unittest.skipUnless(HAS_GDAL, "GDAL is required")
-class GDALRasterTests(unittest.TestCase):
+class GDALRasterTests(SimpleTestCase):
     """
     Test a GDALRaster instance created from a file (GeoTiff).
     """
@@ -156,7 +156,7 @@ class GDALRasterTests(unittest.TestCase):
         # Assert data is same as original input
         self.assertEqual(result, list(range(256)))
 
-    def test_file_based_raster_creation(self):
+    def test_file_path_based_raster_creation(self):
         # Prepare tempfile
         rstfile = tempfile.NamedTemporaryFile(suffix='.tif')
 
@@ -189,6 +189,77 @@ class GDALRasterTests(unittest.TestCase):
             )
         else:
             self.assertEqual(restored_raster.bands[0].data(), self.rs.bands[0].data())
+
+    def test_vsi_file_object_based_raster_creation(self):
+        # Open raster file.
+        dat = open(self.rs_path, 'rb')
+        # Instantiate a raster from the file object. This creates an in memory
+        # file based on the source file content.
+        vsimem = GDALRaster(dat)
+        # The data of the in memory file is equal to the source file.
+        numpy.testing.assert_equal(
+            vsimem.bands[0].data(),
+            self.rs.bands[0].data(),
+        )
+        # Open a GDALRaster from a BytesIO object.
+        dat = open(self.rs_path, 'rb')
+        dat = six.BytesIO(dat.read())
+        vsimem = GDALRaster(dat)
+        # The data of the new in memory file is equal to the source file.
+        numpy.testing.assert_equal(
+            vsimem.bands[0].data(),
+            self.rs.bands[0].data(),
+        )
+        # Get vsimem filesystem path from the GDALRaster
+        vsimem_path = vsimem.name
+        # Delete GDALRaster.
+        del vsimem
+        # The vsimem file has been removed.
+        with self.assertRaises(GDALException):
+            GDALRaster(vsimem_path)
+        # Error message is raised when input is not valid.
+        msg = 'Could not create in memory raster from the input file object.'
+        with self.assertRaisesMessage(GDALException, msg):
+            GDALRaster(six.StringIO('Not-a-raster-buffer'))
+        # Create a vsi based raster based on a dict input.
+        rast = GDALRaster({
+            'name': '/vsimem/abc.tif',
+            'driver': 'tif',
+            'datatype': 1,
+            'width': 4,
+            'height': 4,
+            'srid': 4326,
+            'bands': [{
+                'data': (1,),
+                'offset': (1, 1),
+                'size': (2, 2),
+                'shape': (1, 1),
+                'nodata_value': 2,
+            }],
+        })
+        # Do a round trip from raster to buffer to raster.
+        result = GDALRaster(six.BytesIO(rast.vsi_buffer)).bands[0].data()
+        if numpy:
+            result = result.flatten().tolist()
+        # Band data is equal to nodata value except on input block of ones.
+        self.assertEqual(
+            result,
+            [2, 2, 2, 2, 2, 1, 1, 2, 2, 1, 1, 2, 2, 2, 2, 2]
+        )
+
+    def test_vsi_file_buffer_retrieval(self):
+        # Open file based raster and create a vsi based raster from it.
+        dat = open(self.rs_path, 'rb')
+        content = dat.read()
+        dat = six.BytesIO(content)
+        vsimem = GDALRaster(dat)
+        # Do a round trip from raster to buffer to raster.
+        result = GDALRaster(six.BytesIO(vsimem.vsi_buffer)).bands[0].data()
+        # The data content has not changed.
+        numpy.testing.assert_equal(
+            self.rs.bands[0].data(),
+            result,
+        )
 
     def test_offset_size_and_shape_on_raster_creation(self):
         rast = GDALRaster({
