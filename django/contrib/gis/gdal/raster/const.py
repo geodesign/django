@@ -54,3 +54,9 @@ GDAL_COMPRESS_OPTIONS = (
     'CCITTFAX4',
     'LZMA',
 )
+
+# Fixed basepath for buffer based GDAL in memory files.
+VSI_FILESYSTEM_BASEPATH = '/vsimem/'
+# Flag for managing ownership over buffer when creating VSI in
+# memory files.
+VSI_TAKE_BUFFER_OWNERSHIP = True
