@@ -1,45 +1,3 @@
-"""
-gdalinfo tests/gis_tests/data/rasters/raster.tif:
-
-Driver: GTiff/GeoTIFF
-Files: tests/gis_tests/data/rasters/raster.tif
-Size is 163, 174
-Coordinate System is:
-PROJCS["NAD83 / Florida GDL Albers",
-    GEOGCS["NAD83",
-        DATUM["North_American_Datum_1983",
-            SPHEROID["GRS 1980",6378137,298.2572221010002,
-                AUTHORITY["EPSG","7019"]],
-            TOWGS84[0,0,0,0,0,0,0],
-            AUTHORITY["EPSG","6269"]],
-        PRIMEM["Greenwich",0],
-        UNIT["degree",0.0174532925199433],
-        AUTHORITY["EPSG","4269"]],
-    PROJECTION["Albers_Conic_Equal_Area"],
-    PARAMETER["standard_parallel_1",24],
-    PARAMETER["standard_parallel_2",31.5],
-    PARAMETER["latitude_of_center",24],
-    PARAMETER["longitude_of_center",-84],
-    PARAMETER["false_easting",400000],
-    PARAMETER["false_northing",0],
-    UNIT["metre",1,
-        AUTHORITY["EPSG","9001"]],
-    AUTHORITY["EPSG","3086"]]
-Origin = (511700.468070655711927,435103.377123198588379)
-Pixel Size = (100.000000000000000,-100.000000000000000)
-Metadata:
-  AREA_OR_POINT=Area
-Image Structure Metadata:
-  INTERLEAVE=BAND
-Corner Coordinates:
-Upper Left  (  511700.468,  435103.377) ( 82d51'46.16"W, 27d55' 1.53"N)
-Lower Left  (  511700.468,  417703.377) ( 82d51'52.04"W, 27d45'37.50"N)
-Upper Right (  528000.468,  435103.377) ( 82d41'48.81"W, 27d54'56.30"N)
-Lower Right (  528000.468,  417703.377) ( 82d41'55.54"W, 27d45'32.28"N)
-Center      (  519850.468,  426403.377) ( 82d46'50.64"W, 27d50'16.99"N)
-Band 1 Block=163x50 Type=Byte, ColorInterp=Gray
-  NoData Value=15
-"""
 import os
 import struct
 import tempfile
@@ -190,7 +148,6 @@ class GDALRasterTests(unittest.TestCase):
         else:
             self.assertEqual(restored_raster.bands[0].data(), self.rs.bands[0].data())
 
-<<<<<<< 19e2114634c322d5a58f3dd282a3a3cfd0f5aa24
     def test_offset_size_and_shape_on_raster_creation(self):
         rast = GDALRaster({
             'datatype': 1,
@@ -249,17 +206,63 @@ class GDALRasterTests(unittest.TestCase):
         # Band data is equal to zero becaues no nodata value has been specified.
         self.assertEqual(result, [0] * 4)
 
-    def test_compressed_file_based_raster_creation(self):
-        # Prepare tempfile
-        rstfile = tempfile.NamedTemporaryFile(suffix='.tif')
-
-        # Create file-based raster from scratch
-        compressed = self.rs.warp({'compress': 'PACKBITS', 'name': rstfile.name})
-
-        # Check if compression worked
-        self.assertTrue(
-            os.path.getsize(compressed.name) < os.path.getsize(self.rs.name)
+    def test_raster_metadata_accessor(self):
+        self.assertEqual(
+            self.rs.metadata,
+            {'DEFAULT': {'AREA_OR_POINT': 'Area'}, 'IMAGE_STRUCTURE': {'INTERLEAVE': 'BAND'}},
         )
+
+    def test_raster_info_accessor(self):
+        gdalinfo = """
+        Driver: GTiff/GeoTIFF
+        Files: {0}
+        Size is 163, 174
+        Coordinate System is:
+        PROJCS["NAD83 / Florida GDL Albers",
+            GEOGCS["NAD83",
+                DATUM["North_American_Datum_1983",
+                    SPHEROID["GRS 1980",6378137,298.257222101,
+                        AUTHORITY["EPSG","7019"]],
+                    TOWGS84[0,0,0,0,0,0,0],
+                    AUTHORITY["EPSG","6269"]],
+                PRIMEM["Greenwich",0,
+                    AUTHORITY["EPSG","8901"]],
+                UNIT["degree",0.0174532925199433,
+                    AUTHORITY["EPSG","9122"]],
+                AUTHORITY["EPSG","4269"]],
+            PROJECTION["Albers_Conic_Equal_Area"],
+            PARAMETER["standard_parallel_1",24],
+            PARAMETER["standard_parallel_2",31.5],
+            PARAMETER["latitude_of_center",24],
+            PARAMETER["longitude_of_center",-84],
+            PARAMETER["false_easting",400000],
+            PARAMETER["false_northing",0],
+            UNIT["metre",1,
+                AUTHORITY["EPSG","9001"]],
+            AXIS["X",EAST],
+            AXIS["Y",NORTH],
+            AUTHORITY["EPSG","3086"]]
+        Origin = (511700.468070655711927,435103.377123198588379)
+        Pixel Size = (100.000000000000000,-100.000000000000000)
+        Metadata:
+          AREA_OR_POINT=Area
+        Image Structure Metadata:
+          INTERLEAVE=BAND
+        Corner Coordinates:
+        Upper Left  (  511700.468,  435103.377) ( 82d51'46.16"W, 27d55' 1.53"N)
+        Lower Left  (  511700.468,  417703.377) ( 82d51'52.04"W, 27d45'37.50"N)
+        Upper Right (  528000.468,  435103.377) ( 82d41'48.81"W, 27d54'56.30"N)
+        Lower Right (  528000.468,  417703.377) ( 82d41'55.54"W, 27d45'32.28"N)
+        Center      (  519850.468,  426403.377) ( 82d46'50.64"W, 27d50'16.99"N)
+        Band 1 Block=163x50 Type=Byte, ColorInterp=Gray
+          NoData Value=15
+        """.format(self.rs_path)
+
+        # Data
+        info_dyn = [line.strip() for line in self.rs.info.split('\n') if line.strip() != '']
+        info_ref = [line.strip() for line in gdalinfo.split('\n') if line.strip() != '']
+
+        self.assertEqual(info_dyn, info_ref)
 
     def test_raster_warp(self):
         # Create in memory raster

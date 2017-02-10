@@ -8,12 +8,13 @@ from functools import partial
 from django.contrib.gis.gdal.libgdal import GDAL_VERSION, std_call
 from django.contrib.gis.gdal.prototypes.generation import (
     const_string_output, double_output, int_output, void_output,
-    voidptr_output,
+    voidptr_output, string_output, chararray_output,
 )
 
 # For more detail about c function names and definitions see
 # http://gdal.org/gdal_8h.html
 # http://gdal.org/gdalwarper_8h.html
+# http://www.gdal.org/gdal__utils_8h.html
 
 # Prepare partial functions that use cpl error codes
 void_output = partial(void_output, cpl=True)
@@ -47,6 +48,11 @@ get_ds_projection_ref = const_string_output(std_call('GDALGetProjectionRef'), [c
 set_ds_projection_ref = void_output(std_call('GDALSetProjection'), [c_void_p, c_char_p])
 get_ds_geotransform = void_output(std_call('GDALGetGeoTransform'), [c_void_p, POINTER(c_double * 6)], errcheck=False)
 set_ds_geotransform = void_output(std_call('GDALSetGeoTransform'), [c_void_p, POINTER(c_double * 6)])
+
+get_ds_metadata = chararray_output(std_call('GDALGetMetadata'), [c_void_p, c_char_p], errcheck=False)
+get_ds_metadata_domain_list = chararray_output(std_call('GDALGetMetadataDomainList'), [c_void_p], errcheck=False)
+get_ds_metadata_item = const_string_output(std_call('GDALGetMetadataItem'), [c_void_p, c_char_p, c_char_p])
+get_ds_info = const_string_output(std_call('GDALInfo'), [c_void_p, c_void_p])
 
 # Raster Band Routines
 band_io = void_output(

@@ -2,11 +2,11 @@ import json
 import os
 from ctypes import POINTER, addressof, byref, c_char_p, c_double, c_void_p
 
-from django.contrib.gis.gdal.base import GDALBase
 from django.contrib.gis.gdal.driver import Driver
 from django.contrib.gis.gdal.error import GDALException
 from django.contrib.gis.gdal.prototypes import raster as capi
 from django.contrib.gis.gdal.raster.band import BandList
+from django.contrib.gis.gdal.raster.base import GDALRasterBase
 from django.contrib.gis.gdal.raster.const import (
     GDAL_COMPRESS_OPTIONS, GDAL_RESAMPLE_ALGORITHMS,
 )
@@ -55,7 +55,7 @@ class TransformPoint(list):
 
 
 @python_2_unicode_compatible
-class GDALRaster(GDALBase):
+class GDALRaster(GDALRasterBase):
     """
     Wraps a raster GDAL Data Source object.
     """
@@ -437,3 +437,10 @@ class GDALRaster(GDALBase):
 
         # Warp the raster into new srid
         return self.warp(data, resampling=resampling, max_error=max_error)
+
+    @property
+    def info(self):
+        """
+        Get information about this raster in a string format.
+        """
+        return capi.get_ds_info(self.ptr, None)
