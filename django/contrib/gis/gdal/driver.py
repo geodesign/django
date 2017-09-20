@@ -5,6 +5,7 @@ from django.contrib.gis.gdal.error import GDALException
 from django.contrib.gis.gdal.prototypes import ds as vcapi, raster as rcapi
 from django.utils import six
 from django.utils.encoding import force_bytes, force_text
+from django.utils.functional import cached_property
 
 
 class Driver(GDALBase):
@@ -96,3 +97,20 @@ class Driver(GDALBase):
         Returns description/name string for this driver.
         """
         return force_text(rcapi.get_driver_description(self.ptr))
+
+    @cached_property
+    def metadata(self):
+        """
+        Return the Driver metadata.
+        """
+        result = {}
+        # Get all meta data items and add them to result dict.
+        for meta in rcapi.get_ds_metadata(self.ptr, b''):
+            # Break the loop when no more meta data can be found.
+            if not meta:
+                break
+            # The metadata is returned as KEY=VALUE strings, where the
+            # VALUE may contain "=" characters, so those are re-joined.
+            split = meta.decode().split('=')
+            result[split[0]] = '='.join(split[1:])
+        return result
