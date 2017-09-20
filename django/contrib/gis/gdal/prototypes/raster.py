@@ -35,7 +35,7 @@ close_ds = void_output(std_call('GDALClose'), [c_void_p], errcheck=False)
 flush_ds = int_output(std_call('GDALFlushCache'), [c_void_p])
 copy_ds = voidptr_output(
     std_call('GDALCreateCopy'),
-    [c_void_p, c_char_p, c_void_p, c_int, POINTER(c_char_p), c_void_p, c_void_p]
+    [c_void_p, c_char_p, c_void_p, c_int, c_void_p, c_void_p, c_void_p]
 )
 add_band_ds = void_output(std_call('GDALAddBand'), [c_void_p, c_int])
 get_ds_description = const_string_output(std_call('GDALGetDescription'), [c_void_p])
