@@ -116,6 +116,18 @@ class GDALRaster(GDALRasterBase):
             if driver.name != 'MEM' and 'name' not in ds_input:
                 raise GDALException('Specify name for creation of raster with driver "{}".'.format(driver.name))
 
+            # Some drivers do not have a GDALCreate method, but do  have a
+            # GDALCreateCopy method. For these cases, an intermediate in memory
+            # raster needs to be created and then copied into the desired
+            # format at the end.
+            create_by_copy = False
+            if 'DCAP_CREATE' not in driver.metadata:
+                if 'DCAP_CREATECOPY' in driver.metadata:
+                    create_by_copy = True
+                    driver = Driver('MEM')
+                else:
+                    raise GDALException('Driver {} does not support creating rasters.'.format(driver.name))
+
             # Check if width and height where specified
             if 'width' not in ds_input or 'height' not in ds_input:
                 raise GDALException('Specify width and height attributes for JSON or dict input.')
@@ -177,6 +189,20 @@ class GDALRaster(GDALRasterBase):
 
             if 'skew' in ds_input:
                 self.skew.x, self.skew.y = ds_input['skew']
+
+            # For drivers that only have the create copy method, create the
+            # final raster by copying the intermediate in memory raster.
+            if create_by_copy:
+                self._ptr = capi.copy_ds(
+                    driver._ptr,
+                    force_bytes(ds_input.get('name', '')),
+                    self._ptr,
+                    False,
+                    byref(papsz_options),
+                    c_void_p(),
+                    c_void_p(),
+                )
+
         elif isinstance(ds_input, c_void_p):
             # Instantiate the object using an existing pointer to a gdal raster.
             self._ptr = ds_input
