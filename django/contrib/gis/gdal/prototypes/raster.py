@@ -108,3 +108,4 @@ auto_create_warped_vrt = voidptr_output(
 create_vsi_file_from_mem_buffer = voidptr_output(std_call('VSIFileFromMemBuffer'), [c_char_p, c_void_p, c_int, c_int])
 get_mem_buffer_from_vsi_file = voidptr_output(std_call('VSIGetMemFileBuffer'), [c_char_p, POINTER(c_int), c_bool])
 unlink_vsi_file = int_output(std_call('VSIUnlink'), [c_char_p])
+bla = chararray_output(std_call('VSIReadDirRecursive'), [c_char_p], errcheck=False)

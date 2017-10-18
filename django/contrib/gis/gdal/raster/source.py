@@ -21,7 +21,6 @@ from django.utils import six
 from django.utils.encoding import (
     force_bytes, force_text, python_2_unicode_compatible,
 )
-from django.utils.functional import cached_property
 
 
 class TransformPoint(list):
@@ -124,7 +123,6 @@ class GDALRaster(GDALRasterBase):
             if 'DCAP_CREATE' not in driver.metadata:
                 if 'DCAP_CREATECOPY' in driver.metadata:
                     create_by_copy = True
-                    driver = Driver('MEM')
                 else:
                     raise GDALException('Driver {} does not support creating rasters.'.format(driver.name))
 
@@ -148,8 +146,8 @@ class GDALRaster(GDALRasterBase):
 
             # Create GDAL Raster
             self._ptr = capi.create_ds(
-                driver._ptr,
-                force_bytes(ds_input.get('name', '') + ('' if not create_by_copy else '_temp')),
+                driver._ptr if not create_by_copy else Driver('MEM')._ptr,
+                force_bytes(ds_input.get('name', '') if not create_by_copy else str(uuid.uuid4())),
                 ds_input['width'],
                 ds_input['height'],
                 ds_input.get('nr_of_bands', len(ds_input.get('bands', []))),
@@ -193,8 +191,7 @@ class GDALRaster(GDALRasterBase):
             # For drivers that only have the create copy method, create the
             # final raster by copying the intermediate in memory raster.
             if create_by_copy:
-                driver = Driver(ds_input['driver'])
-                new_ptr = capi.copy_ds(
+                copy_ptr = capi.copy_ds(
                     driver._ptr,
                     force_bytes(ds_input.get('name', '')),
                     self._ptr,
@@ -203,12 +200,10 @@ class GDALRaster(GDALRasterBase):
                     c_void_p(),
                     c_void_p(),
                 )
-                # Remove the intermediate raster
-                if self.is_vsi_based:
-                    capi.unlink_vsi_file(force_bytes(self.name))
+                # Close the intermediate raster.
                 capi.close_ds(self._ptr)
-
-                self._ptr = new_ptr
+                # Set self to new raster.
+                self._ptr = copy_ptr
 
         elif isinstance(ds_input, c_void_p):
             # Instantiate the object using an existing pointer to a gdal raster.
@@ -258,7 +253,7 @@ class GDALRaster(GDALRasterBase):
         # Read the full buffer pointer.
         return string_at(dat, out_length.value)
 
-    @cached_property
+    @property
     def is_vsi_based(self):
         return self.name.startswith(VSI_FILESYSTEM_BASE_PATH)
 
@@ -270,7 +265,7 @@ class GDALRaster(GDALRasterBase):
         """
         return force_text(capi.get_ds_description(self._ptr))
 
-    @cached_property
+    @property
     def driver(self):
         """
         Returns the GDAL Driver used for this raster.
